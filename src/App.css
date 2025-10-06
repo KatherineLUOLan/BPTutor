@@ -218,12 +218,7 @@ body {
 .canvas-container {
   position: relative;
   height: calc(100% - 80px);
-  background: linear-gradient(45deg, #f7fafc 25%, transparent 25%),
-              linear-gradient(-45deg, #f7fafc 25%, transparent 25%),
-              linear-gradient(45deg, transparent 75%, #f7fafc 75%),
-              linear-gradient(-45deg, transparent 75%, #f7fafc 75%);
-  background-size: 20px 20px;
-  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+  background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
   overflow: hidden;
 }
 
@@ -388,6 +383,68 @@ body {
 }
 
 .action-text {
+  font-weight: 500;
+}
+
+/* LLM生成的新idea建议样式 */
+.generated-ideas {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
+}
+.generated-ideas-header {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.7rem;
+  opacity: 0.9;
+}
+
+.generated-icon {
+  font-size: 0.8rem;
+}
+
+.generated-text {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.generated-ideas-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.generated-idea-item {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.4rem;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+.generated-idea-item:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateX(2px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.generated-bullet {
+  color: #ffd700;
+  font-weight: 600;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.generated-idea-text {
+  flex: 1;
+  color: rgba(255, 255, 255, 0.95);
   font-weight: 500;
 }
 
@@ -580,7 +637,6 @@ body {
 .empty-editor p {
   margin: 0.5rem 0;
 }
-
 /* 聊天区域样式 */
 .chat-tools {
   display: flex;
@@ -1123,6 +1179,7 @@ body {
 
 .chat-buttons {
   display: flex;
+  flex-direction: column;
   gap: 0.5rem;
   flex-shrink: 0;
 }
@@ -1156,6 +1213,7 @@ body {
   transition: all 0.2s;
   white-space: nowrap;
   box-shadow: 0 2px 4px rgba(139, 92, 246, 0.2);
+  width: 100%;
 }
 
 .reflect-btn:hover:not(:disabled) {
@@ -1182,6 +1240,7 @@ body {
   cursor: pointer;
   transition: background-color 0.2s;
   white-space: nowrap;
+  width: 100%;
 }
 
 .send-btn:hover:not(:disabled) {
@@ -1221,3 +1280,618 @@ body {
     min-height: 200px;
   }
 }
+
+/* LLM影响因素分析结果样式 */
+.idea-analysis {
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.analysis-header {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.7rem;
+  opacity: 0.9;
+  justify-content: space-between;
+}
+
+.analysis-icon {
+  font-size: 0.8rem;
+}
+
+.analysis-text {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.analysis-content {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.95);
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.analysis-content h1,
+.analysis-content h2,
+.analysis-content h3 {
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 600;
+  margin: 0.5rem 0 0.3rem 0;
+  font-size: 0.8rem;
+}
+
+.analysis-content p {
+  margin: 0.3rem 0;
+  line-height: 1.4;
+}
+
+.analysis-content ul,
+.analysis-content ol {
+  margin: 0.3rem 0;
+  padding-left: 1rem;
+}
+
+.analysis-content li {
+  margin: 0.2rem 0;
+  line-height: 1.4;
+}
+
+.analysis-content strong {
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 600;
+}
+
+/* 分析编辑功能样式 */
+.edit-analysis-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-left: auto;
+}
+
+.edit-analysis-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.analysis-edit-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.analysis-edit-textarea {
+  width: 100%;
+  min-height: 80px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  border-radius: 6px;
+  padding: 0.5rem;
+  font-size: 0.7rem;
+  font-family: inherit;
+  color: #2d3748;
+  resize: vertical;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.analysis-edit-textarea:focus {
+  background: white;
+  border-color: #48bb78;
+  box-shadow: 0 0 0 3px rgba(72, 187, 120, 0.2);
+}
+
+.analysis-edit-controls {
+  display: flex;
+  gap: 0.3rem;
+  justify-content: flex-end;
+}
+
+.save-analysis-btn,
+.cancel-analysis-btn {
+  padding: 0.3rem 0.6rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.save-analysis-btn {
+  background: #48bb78;
+  color: white;
+}
+
+.save-analysis-btn:hover {
+  background: #38a169;
+}
+
+.cancel-analysis-btn {
+  background: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.cancel-analysis-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* 全屏模式样式 */
+.fullscreen-mode {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: #f7fafc;
+  z-index: 9998;
+  overflow: hidden;
+}
+
+.fullscreen-canvas {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1;
+}
+
+.fullscreen-header {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 9999 !important;
+  background: white;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  width: 100vw;
+  height: 80px;
+  box-sizing: border-box;
+}
+
+.fullscreen-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.title-icon {
+  font-size: 1.8rem;
+}
+
+.title-text {
+  color: #4a5568;
+}
+
+.fullscreen-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.fullscreen-canvas-container {
+  flex: 1;
+  background: #f7fafc;
+  overflow: hidden;
+  position: relative;
+  transform-origin: top left;
+  margin-top: 80px; /* 为固定头部留出空间 */
+}
+
+.fullscreen-canvas-container .canvas-content {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+  transform-origin: top left;
+}
+
+.fullscreen-canvas-container .idea-bubble {
+  position: absolute;
+  min-width: 350px;
+  max-width: 450px;
+  background: white;
+  border-radius: 12px;
+  padding: 1.2rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  cursor: move;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+  word-wrap: break-word;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 2;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.fullscreen-canvas-container .idea-bubble:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  transform: translateY(-2px);
+}
+
+.fullscreen-canvas-container .idea-bubble.selected {
+  border-color: #4299e1;
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.2);
+}
+
+.fullscreen-canvas-container .idea-bubble.dragging {
+  z-index: 1000;
+  transform: rotate(2deg);
+}
+
+.fullscreen-canvas-container .idea-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+/* 全屏模式下编辑时的header样式 */
+.fullscreen-canvas-container .idea-header:has(.idea-edit-input) {
+  width: 100% !important;
+  gap: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.fullscreen-canvas-container .idea-header .idea-edit-input {
+  flex: 1 !important;
+  width: 100% !important;
+  margin: 0 !important;
+}
+
+.fullscreen-canvas-container .idea-text {
+  flex: 1;
+  line-height: 1.4;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.fullscreen-canvas-container .remove-idea {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #e53e3e;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.fullscreen-canvas-container .remove-idea:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+.fullscreen-canvas-container .idea-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+
+.fullscreen-canvas-container .idea-action-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.fullscreen-canvas-container .idea-action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.fullscreen-canvas-container .idea-analysis {
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.fullscreen-canvas-container .analysis-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+  font-size: 0.9rem;
+  opacity: 0.9;
+  justify-content: space-between;
+}
+
+.fullscreen-canvas-container .analysis-icon {
+  font-size: 1rem;
+}
+
+.fullscreen-canvas-container .analysis-text {
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.fullscreen-canvas-container .analysis-content {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #4a5568;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.fullscreen-canvas-container .analysis-content h1,
+.fullscreen-canvas-container .analysis-content h2,
+.fullscreen-canvas-container .analysis-content h3 {
+  color: #2d3748;
+  font-weight: 600;
+  margin: 0.5rem 0 0.3rem 0;
+  font-size: 0.95rem;
+}
+
+.fullscreen-canvas-container .analysis-content p {
+  margin: 0.3rem 0;
+  line-height: 1.4;
+}
+
+.fullscreen-canvas-container .analysis-content ul,
+.fullscreen-canvas-container .analysis-content ol {
+  margin: 0.3rem 0;
+  padding-left: 1rem;
+}
+
+.fullscreen-canvas-container .analysis-content li {
+  margin: 0.2rem 0;
+  line-height: 1.4;
+}
+
+.fullscreen-canvas-container .analysis-content strong {
+  color: #2d3748;
+  font-weight: 600;
+}
+
+.fullscreen-canvas-container .empty-canvas {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #a0aec0;
+  font-size: 1.1rem;
+}
+
+.fullscreen-canvas-container .empty-canvas p {
+  margin: 0.5rem 0;
+}
+
+/* 确保全屏按钮始终可见 */
+.fullscreen-header .fullscreen-btn {
+  z-index: 10000 !important;
+  position: relative;
+}
+
+.fullscreen-header .zoom-controls {
+  z-index: 10000 !important;
+  position: relative;
+}
+
+/* 全屏模式下禁用细化、分支按钮 */
+.fullscreen-canvas-container .idea-action-btn.disabled {
+  background: #e2e8f0 !important;
+  color: #a0aec0 !important;
+  cursor: not-allowed !important;
+  opacity: 0.6;
+}
+
+.fullscreen-canvas-container .idea-action-btn.disabled:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* 全屏模式下编辑输入框样式 */
+.fullscreen-canvas-container .idea-edit-input {
+  width: 100% !important;
+  min-width: 350px !important;
+  max-width: 450px !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  border: 2px solid #4299e1 !important;
+  border-radius: 8px;
+  padding: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2d3748;
+  outline: none;
+  box-sizing: border-box;
+  margin: 0 !important;
+  flex: 1 !important;
+}
+
+.fullscreen-canvas-container .idea-edit-input:focus {
+  border-color: #3182ce;
+  box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
+}
+
+/* 强制全屏编辑输入框占满整个气泡 */
+.fullscreen-canvas-container .idea-bubble.editing .idea-header {
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.fullscreen-canvas-container .idea-bubble.editing .idea-edit-input {
+  width: calc(100% - 0px) !important;
+  min-width: 350px !important;
+  max-width: 450px !important;
+  margin: 0 !important;
+  padding: 0.5rem !important;
+}
+
+/* 全屏模式下分析编辑框样式 */
+.fullscreen-canvas-container .analysis-edit-textarea,
+.fullscreen-canvas-container .idea-bubble:has(.analysis-edit-mode) .analysis-edit-textarea {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 200px !important;
+  background: white !important;
+  border: 1px solid #cbd5e0 !important;
+  border-radius: 8px;
+  padding: 1rem !important;
+  font-size: 0.9rem !important;
+  font-family: inherit;
+  color: #2d3748;
+  resize: vertical;
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  margin: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  line-height: 1.5;
+}
+
+.fullscreen-canvas-container .analysis-edit-textarea:focus {
+  background: white !important;
+  border-color: #4299e1 !important;
+  box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.1) !important;
+}
+
+/* 全屏模式下分析编辑容器样式 */
+.fullscreen-canvas-container .analysis-edit-mode {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow-x: hidden !important;
+  box-sizing: border-box;
+}
+
+/* 全屏模式下编辑时的idea气泡样式 - 只显示编辑框 */
+.fullscreen-canvas-container .idea-bubble.editing,
+.fullscreen-canvas-container .idea-bubble:has(.analysis-edit-mode) {
+  background: #f7fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  padding: 1.5rem !important;
+  min-width: 400px !important;
+  max-width: 500px !important;
+  height: 380px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+  overflow: hidden !important;
+}
+
+/* 全屏模式下编辑时隐藏其他元素 */
+.fullscreen-canvas-container .idea-bubble.editing .idea-header:not(:has(.idea-edit-input)),
+.fullscreen-canvas-container .idea-bubble.editing .idea-actions,
+.fullscreen-canvas-container .idea-bubble.editing .idea-analysis:not(.analysis-edit-mode),
+.fullscreen-canvas-container .idea-bubble:has(.analysis-edit-mode) .idea-header:not(:has(.idea-edit-input)),
+.fullscreen-canvas-container .idea-bubble:has(.analysis-edit-mode) .idea-actions,
+.fullscreen-canvas-container .idea-bubble:has(.analysis-edit-mode) .idea-analysis:not(.analysis-edit-mode) {
+  display: none !important;
+}
+
+/* 全屏模式下分析编辑标题样式 */
+.fullscreen-canvas-container .analysis-edit-mode .analysis-header,
+.fullscreen-canvas-container .idea-bubble:has(.analysis-edit-mode) .analysis-edit-mode .analysis-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding: 0.5rem 0;
+  background: transparent;
+  border-bottom: 1px solid #e2e8f0;
+  color: #2d3748;
+}
+
+.fullscreen-canvas-container .analysis-edit-mode .analysis-header .analysis-icon {
+  font-size: 1rem;
+  opacity: 0.8;
+  color: #4a5568;
+}
+
+.fullscreen-canvas-container .analysis-edit-mode .analysis-header .analysis-text {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.fullscreen-canvas-container .analysis-edit-mode .edit-analysis-btn {
+  background: #f7fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #4a5568 !important;
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+}
+
+.fullscreen-canvas-container .analysis-edit-mode .edit-analysis-btn:hover {
+  background: #edf2f7 !important;
+  border-color: #cbd5e0 !important;
+}
+
+.fullscreen-canvas-container .analysis-edit-controls {
+  width: 100% !important;
+  margin-top: 1rem !important;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.fullscreen-canvas-container .analysis-edit-controls .save-analysis-btn,
+.fullscreen-canvas-container .analysis-edit-controls .cancel-analysis-btn {
+  padding: 0.6rem 1.2rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.fullscreen-canvas-container .analysis-edit-controls .save-analysis-btn {
+  background: #48bb78;
+  color: white;
+}
+
+.fullscreen-canvas-container .analysis-edit-controls .save-analysis-btn:hover {
+  background: #38a169;
+}
+
+.fullscreen-canvas-container .analysis-edit-controls .cancel-analysis-btn {
+  background: #e2e8f0;
+  color: #4a5568;
+}
+
+.fullscreen-canvas-container .analysis-edit-controls .cancel-analysis-btn:hover {
+  background: #cbd5e0;
+}
+
+

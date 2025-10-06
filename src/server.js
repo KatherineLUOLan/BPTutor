@@ -281,6 +281,125 @@ ${chatHistoryText}
             return await this.generateResponse(messages);
         }
     }
+
+    async analyzeWritingChanges(context = {}) {
+        const { ideaText, previousWritings, currentWritings, currentSection } = context;
+        
+        // 判断是新idea分析还是写作内容变化分析
+        const isNewIdeaAnalysis = currentSection === '新想法分析';
+        
+        let systemPrompt;
+        
+        if (isNewIdeaAnalysis) {
+            // 新idea分析
+            systemPrompt = `你是一个商业计划分析专家。用户提出了一个新的商业想法，请按照Bloom认知分类分析这个想法可能受到什么因素影响而产生。
+
+新想法：${ideaText || '未命名'}
+
+请按照以下Bloom认知分类分析用户受到启发的点：
+
+**Knowledge（记忆与再现事实）**：用户是否基于已知的事实、数据、市场信息等产生想法
+**Comprehension（理解意义）**：用户是否理解了某个现象、趋势或问题的深层含义
+**Application（应用知识解决问题）**：用户是否将已有知识应用到解决具体问题中
+**Analysis（分析结构与关系）**：用户是否分析了市场结构、用户关系、竞争格局等
+**Synthesis（综合、创造新的结构）**：用户是否综合多个元素创造出新的商业模式或概念
+**Evaluation（评估与判断价值）**：用户是否评估了某个机会的价值或判断了某个方向的可行性
+
+要求：
+1. 分析这个想法可能受到的外部因素影响（市场趋势、用户需求、竞争环境、技术发展等）
+2. 分析用户可能的内在动机和思维模式（个人经历、价值观念、目标追求等）
+3. 识别可能影响这个想法的关键触发点
+4. 按照Bloom认知分类分析用户受到启发的具体认知层次
+5. 没有涉及的认知层次可以不写
+
+输出格式：
+- 关键触发点
+- Knowledge: [如果涉及]
+- Comprehension: [如果涉及]
+- Application: [如果涉及]
+- Analysis: [如果涉及]
+- Synthesis: [如果涉及]
+- Evaluation: [如果涉及]`;
+        } else {
+            // 写作内容变化分析
+            const writingComparison = this.buildWritingComparison(previousWritings, currentWritings);
+            
+            systemPrompt = `你是一个商业计划分析专家。用户更新了写作内容，请按照Bloom认知分类分析用户受到什么因素影响而改变idea。
+
+原始想法：${ideaText || '未命名'}
+当前板块：${currentSection || '未知'}
+
+写作内容变化分析：
+${writingComparison}
+
+请按照以下Bloom认知分类分析用户受到启发的点：
+
+**Knowledge（记忆与再现事实）**：用户是否基于已知的事实、数据、市场信息等产生想法
+**Comprehension（理解意义）**：用户是否理解了某个现象、趋势或问题的深层含义
+**Application（应用知识解决问题）**：用户是否将已有知识应用到解决具体问题中
+**Analysis（分析结构与关系）**：用户是否分析了市场结构、用户关系、竞争格局等
+**Synthesis（综合、创造新的结构）**：用户是否综合多个元素创造出新的商业模式或概念
+**Evaluation（评估与判断价值）**：用户是否评估了某个机会的价值或判断了某个方向的可行性
+
+要求：
+1. 分析用户受到什么外部因素影响（市场趋势、用户需求、竞争环境、技术发展等）
+2. 分析用户内部思维变化（认知升级、价值观念转变、目标调整等）
+3. 识别影响用户决策的关键触发点
+4. 按照Bloom认知分类分析用户受到启发的具体认知层次
+5. 没有涉及的认知层次可以不写
+
+输出格式：
+- 关键触发点
+- Knowledge: [如果涉及]
+- Comprehension: [如果涉及]
+- Application: [如果涉及]
+- Analysis: [如果涉及]
+- Synthesis: [如果涉及]
+- Evaluation: [如果涉及]`;
+        }
+
+        const messages = [
+            {
+                role: "system",
+                content: systemPrompt
+            },
+            {
+                role: "user",
+                content: isNewIdeaAnalysis ? "请分析这个新想法的影响因素" : "请分析用户受到什么因素影响而改变idea"
+            }
+        ];
+
+        return await this.generateResponse(messages);
+    }
+
+    buildWritingComparison(previousWritings, currentWritings) {
+        const sections = [
+            { key: 'userPainPoints', name: '用户痛点' },
+            { key: 'marketAnalysis', name: '市场分析' },
+            { key: 'productIntro', name: '产品介绍' },
+            { key: 'competitiveAnalysis', name: '竞争分析' },
+            { key: 'feasibilityAnalysis', name: '可行性分析' },
+            { key: 'fundingPlan', name: '融资计划' },
+            { key: 'teamIntro', name: '团队介绍' }
+        ];
+
+        let comparison = '';
+        
+        sections.forEach(section => {
+            const previous = previousWritings?.[section.key] || '';
+            const current = currentWritings?.[section.key] || '';
+            
+            if (current !== previous && current.trim()) {
+                comparison += `\n**${section.name}：**\n`;
+                if (previous.trim()) {
+                    comparison += `之前：${previous}\n`;
+                }
+                comparison += `现在：${current}\n`;
+            }
+        });
+
+        return comparison || '暂无内容变化';
+    }
 }
 
 // 创建策略代理实例
@@ -350,6 +469,30 @@ app.post('/api/reflect', async (req, res) => {
     }
 });
 
+// 写作内容分析API
+app.post('/api/analyze-writing', async (req, res) => {
+    try {
+        const { context } = req.body;
+        
+        console.log('收到用户影响因素分析请求');
+        
+        const result = await strategyAgent.analyzeWritingChanges(context);
+        
+        res.json({
+            status: 'success',
+            data: result,
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('用户影响因素分析错误:', error);
+        res.status(500).json({
+            error: error.message || '服务器内部错误',
+            status: 'error'
+        });
+    }
+});
+
 // 健康检查API
 app.get('/api/health', (req, res) => {
     res.json({
@@ -384,6 +527,7 @@ app.listen(PORT, () => {
     console.log(`   GET  / - 服务状态`);
     console.log(`   POST /api/strategy - 策略咨询`);
     console.log(`   POST /api/reflect - 生成推荐问题`);
+    console.log(`   POST /api/analyze-writing - 用户影响因素分析`);
     console.log(`   GET  /api/health - 健康检查`);
     console.log(`⏰ 启动时间: ${new Date().toLocaleString('zh-CN')}`);
 });

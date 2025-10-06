@@ -24,9 +24,18 @@ function App() {
   const [recommendedQuestions, setRecommendedQuestions] = useState({});
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
   
+  // 写作内容分析和新idea建议
+  const [previousWritings, setPreviousWritings] = useState({}); // 存储每个idea的写作内容历史
+  const [generatedIdeas, setGeneratedIdeas] = useState({}); // 存储LLM生成的新idea建议
+  const [isAnalyzingWriting, setIsAnalyzingWriting] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false); // 全屏状态
+  const [editingAnalysisId, setEditingAnalysisId] = useState(null); // 正在编辑分析的idea ID
+  const [editingAnalysisText, setEditingAnalysisText] = useState(''); // 编辑中的分析文本
+  
   // 引用
   const canvasRef = useRef(null);
   const chatEndRef = useRef(null);
+  const writingAnalysisTimeoutRef = useRef(null);
 
   // 写作框架模板
   const writingFramework = [
@@ -124,6 +133,15 @@ function App() {
     scrollToBottom();
   }, [ideaChats, selectedIdeaId, selectedFrameworkId]);
 
+  // 清理防抖定时器
+  useEffect(() => {
+    return () => {
+      if (writingAnalysisTimeoutRef.current) {
+        clearTimeout(writingAnalysisTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // 添加想法到画布
   const addIdea = () => {
     if (currentIdea.trim()) {
@@ -158,6 +176,83 @@ function App() {
       setCurrentIdea('');
       // 自动选中新添加的idea
       setSelectedIdeaId(newIdea.id);
+    }
+  };
+
+  // 切换全屏模式
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+  };
+
+  // 开始编辑分析内容
+  const startEditingAnalysis = (ideaId, e) => {
+    e.stopPropagation();
+    const analysis = generatedIdeas[ideaId];
+    if (analysis) {
+      setEditingAnalysisId(ideaId);
+      setEditingAnalysisText(analysis.analysis);
+    }
+  };
+
+  // 保存编辑的分析内容
+  const saveAnalysisEdit = (ideaId) => {
+    if (editingAnalysisText.trim()) {
+      setGeneratedIdeas({
+        ...generatedIdeas,
+        [ideaId]: {
+          ...generatedIdeas[ideaId],
+          analysis: editingAnalysisText.trim()
+        }
+      });
+    }
+    setEditingAnalysisId(null);
+    setEditingAnalysisText('');
+  };
+
+  // 取消编辑分析
+  const cancelAnalysisEdit = (ideaId) => {
+    setEditingAnalysisId(null);
+    setEditingAnalysisText('');
+  };
+
+  // 分析新idea的影响因素
+  const analyzeNewIdea = async (idea) => {
+    setIsAnalyzingWriting(true);
+    
+    try {
+      const response = await fetch('http://localhost:5000/api/analyze-writing', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          context: {
+            ideaText: idea.text,
+            previousWritings: {},
+            currentWritings: {},
+            currentSection: '新想法分析'
+          }
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.status === 'success') {
+        const content = data.data.choices[0].message.content;
+        
+        // 存储LLM影响因素分析结果
+        setGeneratedIdeas({
+          ...generatedIdeas,
+          [idea.id]: {
+            analysis: content,
+            timestamp: new Date()
+          }
+        });
+      }
+    } catch (error) {
+      console.error('新idea分析失败:', error);
+    } finally {
+      setIsAnalyzingWriting(false);
     }
   };
 
@@ -280,9 +375,18 @@ function App() {
   // 保存编辑的idea名称
   const saveIdeaEdit = (id) => {
     if (editingText.trim()) {
+      const updatedIdea = { ...ideas.find(idea => idea.id === id), text: editingText.trim() };
       setIdeas(ideas.map(idea => 
-        idea.id === id ? { ...idea, text: editingText.trim() } : idea
+        idea.id === id ? updatedIdea : idea
       ));
+      
+      // 检查是否是新建的idea（通过细化或分支创建的），如果是则分析
+      if (updatedIdea && (updatedIdea.parentId || updatedIdea.connectionType === 'refine' || updatedIdea.connectionType === 'branch')) {
+        // 延迟分析，确保状态已更新
+        setTimeout(() => {
+          analyzeNewIdea(updatedIdea);
+        }, 100);
+      }
     } else {
       // 如果没有输入内容，删除这个idea
       removeIdeaWithoutEvent(id);
@@ -310,6 +414,10 @@ function App() {
     const newChats = { ...ideaChats };
     delete newChats[id];
     setIdeaChats(newChats);
+    // 删除对应的分析结果
+    const newGeneratedIdeas = { ...generatedIdeas };
+    delete newGeneratedIdeas[id];
+    setGeneratedIdeas(newGeneratedIdeas);
     if (selectedIdeaId === id) {
       setSelectedIdeaId(null);
     }
@@ -386,14 +494,90 @@ function App() {
   // 更新当前idea的写作内容
   const updateIdeaWriting = (field, value) => {
     if (!selectedIdeaId) return;
-    setIdeaWritings({
+    
+    // 保存当前写作内容作为历史版本
+    const currentWritings = ideaWritings[selectedIdeaId] || {};
+    setPreviousWritings({
+      ...previousWritings,
+      [selectedIdeaId]: { ...currentWritings }
+    });
+    
+    // 更新写作内容
+    const newWritings = {
       ...ideaWritings,
       [selectedIdeaId]: {
         ...ideaWritings[selectedIdeaId],
         [field]: value
       }
-    });
+    };
+    setIdeaWritings(newWritings);
+    
+    // 防抖调用写作内容分析
+    if (writingAnalysisTimeoutRef.current) {
+      clearTimeout(writingAnalysisTimeoutRef.current);
+    }
+    
+    writingAnalysisTimeoutRef.current = setTimeout(() => {
+      analyzeWritingChanges(selectedIdeaId, newWritings[selectedIdeaId]);
+    }, 2000); // 2秒防抖
   };
+
+  // 分析写作内容变化并生成新idea建议
+  const analyzeWritingChanges = async (ideaId, currentWritings) => {
+    if (!ideaId || !currentWritings || isAnalyzingWriting) return;
+    
+    const previousWritingsForIdea = previousWritings[ideaId] || {};
+    const selectedIdea = ideas.find(i => i.id === ideaId);
+    const currentFramework = writingFramework.find(f => f.id === selectedFrameworkId);
+    
+    // 检查是否有实际内容变化
+    const hasChanges = Object.keys(currentWritings).some(field => {
+      const previous = previousWritingsForIdea[field] || '';
+      const current = currentWritings[field] || '';
+      return current.trim() !== previous.trim() && current.trim().length > 0;
+    });
+    
+    if (!hasChanges) return;
+    
+    setIsAnalyzingWriting(true);
+    
+    try {
+      const response = await fetch('http://localhost:5000/api/analyze-writing', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          context: {
+            ideaText: selectedIdea?.text,
+            previousWritings: previousWritingsForIdea,
+            currentWritings: currentWritings,
+            currentSection: currentFramework?.title
+          }
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.status === 'success') {
+        const content = data.data.choices[0].message.content;
+        
+        // 存储LLM影响因素分析结果
+        setGeneratedIdeas({
+          ...generatedIdeas,
+          [ideaId]: {
+            analysis: content,
+            timestamp: new Date()
+          }
+        });
+      }
+    } catch (error) {
+      console.error('写作内容分析失败:', error);
+    } finally {
+      setIsAnalyzingWriting(false);
+    }
+  };
+
 
   // 保存写作内容
   const saveWriting = () => {
@@ -754,16 +938,252 @@ function App() {
   };
 
   return (
-    <div className="app">
-      <div className="app-header">
-        <h1>商业计划书写作-元反思工作台</h1>
-        <div className="status-indicator">
-          <span className="status-dot"></span>
-          服务运行中
+    <div className={`app ${isFullscreen ? 'fullscreen-mode' : ''}`}>
+      {isFullscreen ? (
+        // 全屏模式：只显示画布
+        <div className="fullscreen-canvas">
+          <div className="fullscreen-header">
+            <div className="fullscreen-title">
+              <span className="title-icon">💡</span>
+              <span className="title-text">Idea 迭代画布</span>
+            </div>
+            <div className="fullscreen-controls">
+              <div className="idea-input-group">
+                <input
+                  id="idea-input"
+                  type="text"
+                  value={currentIdea}
+                  onChange={(e) => setCurrentIdea(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="输入新想法..."
+                  className="idea-input"
+                />
+                <button onClick={addIdea} className="add-idea-btn">
+                  +
+                </button>
+              </div>
+              <div className="zoom-controls">
+                <button className="zoom-btn" onClick={() => setCanvasScale(Math.max(0.5, canvasScale - 0.1))}>-</button>
+                <span className="zoom-value">{Math.round(canvasScale * 100)}%</span>
+                <button className="zoom-btn" onClick={() => setCanvasScale(Math.min(2, canvasScale + 0.1))}>+</button>
+                <button className="zoom-btn reset-btn" onClick={() => setCanvasScale(1)}>⟲</button>
+                <button className="zoom-btn fullscreen-btn" onClick={toggleFullscreen} title={isFullscreen ? "退出全屏" : "全屏显示"}>
+                  {isFullscreen ? "⤓" : "⤢"}
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div 
+            className="canvas-container fullscreen-canvas-container" 
+            ref={canvasRef}
+            onWheel={handleWheel}
+          >
+            <div 
+              className="canvas-content"
+              style={{ transform: `scale(${canvasScale})` }}
+            >
+            {/* 绘制连接箭头 */}
+            <svg className="connection-svg">
+              {ideas.map(idea => {
+                if (idea.parentId) {
+                  const parentIdea = ideas.find(i => i.id === idea.parentId);
+                  if (parentIdea) {
+                    // 计算箭头起点和终点（考虑气泡框的实际宽度和高度）
+                    const bubbleWidth = 200; // 气泡平均宽度
+                    const bubbleHeight = 100; // 气泡平均高度（包含按钮）
+                    
+                    const startX = parentIdea.x + (idea.connectionType === 'refine' ? bubbleWidth : bubbleWidth / 2);
+                    const startY = parentIdea.y + (idea.connectionType === 'refine' ? bubbleHeight / 2 : bubbleHeight + 5);
+                    const endX = idea.x + (idea.connectionType === 'refine' ? 0 : bubbleWidth / 2);
+                    const endY = idea.y + (idea.connectionType === 'refine' ? bubbleHeight / 2 : -5);
+                    
+                    // 创建路径
+                    const midX = (startX + endX) / 2;
+                    const midY = (startY + endY) / 2;
+                    let path;
+                    let strokeColor = '#667eea';
+                    
+                    if (idea.connectionType === 'refine') {
+                      path = `M ${startX} ${startY} L ${endX} ${endY}`; // 直线（细化）
+                    } else if (idea.connectionType === 'ai-generated') {
+                      path = `M ${startX} ${startY} C ${startX} ${midY}, ${endX} ${midY}, ${endX} ${endY}`; // S型曲线（AI生成）
+                      strokeColor = '#ffd700'; // 金色表示AI生成
+                    } else {
+                      path = `M ${startX} ${startY} C ${startX} ${midY}, ${endX} ${midY}, ${endX} ${endY}`; // S型曲线（分支）
+                    }
+                    
+                    return (
+                      <g key={`arrow-${idea.id}`}>
+                        <defs>
+                          <marker
+                            id={`arrowhead-${idea.id}`}
+                            markerWidth="10"
+                            markerHeight="10"
+                            refX="9"
+                            refY="3"
+                            orient="auto"
+                          >
+                            <polygon points="0 0, 10 3, 0 6" fill={strokeColor} />
+                          </marker>
+                        </defs>
+                        <path
+                          d={path}
+                          stroke={strokeColor}
+                          strokeWidth="2"
+                          fill="none"
+                          markerEnd={`url(#arrowhead-${idea.id})`}
+                          className="connection-line"
+                        />
+                      </g>
+                    );
+                  }
+                }
+                return null;
+              })}
+            </svg>
+            
+            {/* 想法气泡 */}
+            {ideas.map(idea => (
+              <div
+                key={idea.id}
+                className={`idea-bubble ${selectedIdeaId === idea.id ? 'selected' : ''} ${editingIdeaId === idea.id ? 'editing' : ''} ${draggingIdeaId === idea.id ? 'dragging' : ''}`}
+                style={{
+                  left: idea.x,
+                  top: idea.y,
+                  backgroundColor: idea.color,
+                  cursor: draggingIdeaId === idea.id ? 'grabbing' : 'grab'
+                }}
+                onMouseDown={(e) => handleIdeaMouseDown(idea.id, e)}
+                onClick={() => !editingIdeaId && !draggingIdeaId && selectIdea(idea.id)}
+              >
+                <div className="idea-header">
+                  {editingIdeaId === idea.id ? (
+                    <input
+                      type="text"
+                      className="idea-edit-input"
+                      value={editingText}
+                      onChange={(e) => setEditingText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          saveIdeaEdit(idea.id);
+                        } else if (e.key === 'Escape') {
+                          cancelIdeaEdit(idea.id);
+                        }
+                      }}
+                      onBlur={() => saveIdeaEdit(idea.id)}
+                      placeholder="输入新想法..."
+                      autoFocus
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  ) : (
+                    <>
+                      <span className="idea-text">{idea.text || '空白想法'}</span>
+                      <button className="remove-idea" onClick={(e) => removeIdea(idea.id, e)}>×</button>
+                    </>
+                  )}
+                </div>
+                {editingIdeaId !== idea.id && (
+                  <div className="idea-actions">
+                    <button 
+                      className={`idea-action-btn refine-btn ${isFullscreen ? 'disabled' : ''}`}
+                      onClick={isFullscreen ? undefined : (e) => refineIdea(idea.id, e)}
+                      title={isFullscreen ? "全屏模式下不可用" : "细化想法"}
+                      disabled={isFullscreen}
+                    >
+                      <span className="action-icon">🔍</span>
+                      <span className="action-text">细化</span>
+                    </button>
+                    <button 
+                      className={`idea-action-btn duplicate-btn ${isFullscreen ? 'disabled' : ''}`}
+                      onClick={isFullscreen ? undefined : (e) => duplicateIdea(idea.id, e)}
+                      title={isFullscreen ? "全屏模式下不可用" : "分支想法"}
+                      disabled={isFullscreen}
+                    >
+                      <span className="action-icon">📋</span>
+                      <span className="action-text">分支</span>
+                    </button>
+                  </div>
+                )}
+                
+                {/* LLM影响因素分析结果 - 只对新建的idea显示 */}
+                {generatedIdeas[idea.id] && (idea.parentId || idea.connectionType === 'refine' || idea.connectionType === 'branch') && (
+                  <div className="idea-analysis">
+                    <div className="analysis-header">
+                      <span className="analysis-icon">🔍</span>
+                      <span className="analysis-text">认知分析</span>
+                      <button 
+                        className="edit-analysis-btn" 
+                        onClick={(e) => startEditingAnalysis(idea.id, e)}
+                        title="编辑分析内容"
+                      >
+                        ✏️
+                      </button>
+                    </div>
+                    <div className="analysis-content">
+                      {editingAnalysisId === idea.id ? (
+                        <div className="analysis-edit-mode">
+                          <textarea
+                            className="analysis-edit-textarea"
+                            value={editingAnalysisText}
+                            onChange={(e) => setEditingAnalysisText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && e.ctrlKey) {
+                                saveAnalysisEdit(idea.id);
+                              } else if (e.key === 'Escape') {
+                                cancelAnalysisEdit(idea.id);
+                              }
+                            }}
+                            onBlur={() => saveAnalysisEdit(idea.id)}
+                            placeholder="编辑分析内容..."
+                            autoFocus
+                          />
+                          <div className="analysis-edit-controls">
+                            <button 
+                              className="save-analysis-btn" 
+                              onClick={() => saveAnalysisEdit(idea.id)}
+                            >
+                              保存
+                            </button>
+                            <button 
+                              className="cancel-analysis-btn" 
+                              onClick={() => cancelAnalysisEdit(idea.id)}
+                            >
+                              取消
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <ReactMarkdown>
+                          {generatedIdeas[idea.id].analysis}
+                        </ReactMarkdown>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+            {ideas.length === 0 && (
+              <div className="empty-canvas">
+                <p>点击上方输入框添加想法</p>
+                <p>点击想法可以在下方编辑内容</p>
+              </div>
+            )}
+            </div>
+          </div>
         </div>
-      </div>
-      
-      <div className="app-content">
+      ) : (
+        // 正常模式：显示完整界面
+        <>
+          <div className="app-header">
+            <h1>商业计划书写作-元反思工作台</h1>
+            <div className="status-indicator">
+              <span className="status-dot"></span>
+              服务运行中
+            </div>
+          </div>
+          
+          <div className="app-content">
         {/* 左侧区域 */}
         <div className="left-panel">
           {/* 左上：Idea 迭代画布 */}
@@ -785,12 +1205,15 @@ function App() {
                     +
                   </button>
                 </div>
-                <div className="zoom-controls">
-                  <button className="zoom-btn" onClick={() => setCanvasScale(Math.max(0.5, canvasScale - 0.1))}>-</button>
-                  <span className="zoom-value">{Math.round(canvasScale * 100)}%</span>
-                  <button className="zoom-btn" onClick={() => setCanvasScale(Math.min(2, canvasScale + 0.1))}>+</button>
-                  <button className="zoom-btn reset-btn" onClick={() => setCanvasScale(1)}>⟲</button>
-                </div>
+                 <div className="zoom-controls">
+                   <button className="zoom-btn" onClick={() => setCanvasScale(Math.max(0.5, canvasScale - 0.1))}>-</button>
+                   <span className="zoom-value">{Math.round(canvasScale * 100)}%</span>
+                   <button className="zoom-btn" onClick={() => setCanvasScale(Math.min(2, canvasScale + 0.1))}>+</button>
+                   <button className="zoom-btn reset-btn" onClick={() => setCanvasScale(1)}>⟲</button>
+                   <button className="zoom-btn fullscreen-btn" onClick={toggleFullscreen} title={isFullscreen ? "退出全屏" : "全屏显示"}>
+                     {isFullscreen ? "⤓" : "⤢"}
+                   </button>
+                 </div>
               </div>
             </div>
             
@@ -798,12 +1221,7 @@ function App() {
               className="canvas-container" 
               ref={canvasRef}
               onWheel={handleWheel}
-              style={{
-                transform: `scale(${canvasScale})`,
-                transformOrigin: 'top left',
-                width: `${100 / canvasScale}%`,
-                height: `${100 / canvasScale}%`
-              }}
+              style={{ transform: `scale(${canvasScale})` }}
             >
               {/* 绘制连接箭头 */}
               <svg className="connection-svg">
@@ -823,9 +1241,17 @@ function App() {
                       // 创建路径
                       const midX = (startX + endX) / 2;
                       const midY = (startY + endY) / 2;
-                      const path = idea.connectionType === 'refine' 
-                        ? `M ${startX} ${startY} L ${endX} ${endY}` // 直线（细化）
-                        : `M ${startX} ${startY} C ${startX} ${midY}, ${endX} ${midY}, ${endX} ${endY}`; // S型曲线（分支）
+                      let path;
+                      let strokeColor = '#667eea';
+                      
+                      if (idea.connectionType === 'refine') {
+                        path = `M ${startX} ${startY} L ${endX} ${endY}`; // 直线（细化）
+                      } else if (idea.connectionType === 'ai-generated') {
+                        path = `M ${startX} ${startY} C ${startX} ${midY}, ${endX} ${midY}, ${endX} ${endY}`; // S型曲线（AI生成）
+                        strokeColor = '#ffd700'; // 金色表示AI生成
+                      } else {
+                        path = `M ${startX} ${startY} C ${startX} ${midY}, ${endX} ${midY}, ${endX} ${endY}`; // S型曲线（分支）
+                      }
                       
                       return (
                         <g key={`arrow-${idea.id}`}>
@@ -838,12 +1264,12 @@ function App() {
                               refY="3"
                               orient="auto"
                             >
-                              <polygon points="0 0, 10 3, 0 6" fill="#667eea" />
+                              <polygon points="0 0, 10 3, 0 6" fill={strokeColor} />
                             </marker>
                           </defs>
                           <path
                             d={path}
-                            stroke="#667eea"
+                            stroke={strokeColor}
                             strokeWidth="2"
                             fill="none"
                             markerEnd={`url(#arrowhead-${idea.id})`}
@@ -900,21 +1326,79 @@ function App() {
                   {editingIdeaId !== idea.id && (
                     <div className="idea-actions">
                       <button 
-                        className="idea-action-btn refine-btn" 
-                        onClick={(e) => refineIdea(idea.id, e)}
-                        title="细化想法"
+                        className={`idea-action-btn refine-btn ${isFullscreen ? 'disabled' : ''}`}
+                        onClick={isFullscreen ? undefined : (e) => refineIdea(idea.id, e)}
+                        title={isFullscreen ? "全屏模式下不可用" : "细化想法"}
+                        disabled={isFullscreen}
                       >
                         <span className="action-icon">🔍</span>
                         <span className="action-text">细化</span>
                       </button>
                       <button 
-                        className="idea-action-btn duplicate-btn" 
-                        onClick={(e) => duplicateIdea(idea.id, e)}
-                        title="分支想法"
+                        className={`idea-action-btn duplicate-btn ${isFullscreen ? 'disabled' : ''}`}
+                        onClick={isFullscreen ? undefined : (e) => duplicateIdea(idea.id, e)}
+                        title={isFullscreen ? "全屏模式下不可用" : "分支想法"}
+                        disabled={isFullscreen}
                       >
                         <span className="action-icon">📋</span>
                         <span className="action-text">分支</span>
                       </button>
+                    </div>
+                  )}
+                  
+                  {/* LLM影响因素分析结果 - 只对新建的idea显示 */}
+                  {generatedIdeas[idea.id] && (idea.parentId || idea.connectionType === 'refine' || idea.connectionType === 'branch') && (
+                    <div className="idea-analysis">
+                      <div className="analysis-header">
+                        <span className="analysis-icon">🔍</span>
+                        <span className="analysis-text">认知启发分析</span>
+                        <button 
+                          className="edit-analysis-btn" 
+                          onClick={(e) => startEditingAnalysis(idea.id, e)}
+                          title="编辑分析内容"
+                        >
+                          ✏️
+                        </button>
+                      </div>
+                      <div className="analysis-content">
+                        {editingAnalysisId === idea.id ? (
+                          <div className="analysis-edit-mode">
+                            <textarea
+                              className="analysis-edit-textarea"
+                              value={editingAnalysisText}
+                              onChange={(e) => setEditingAnalysisText(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && e.ctrlKey) {
+                                  saveAnalysisEdit(idea.id);
+                                } else if (e.key === 'Escape') {
+                                  cancelAnalysisEdit(idea.id);
+                                }
+                              }}
+                              onBlur={() => saveAnalysisEdit(idea.id)}
+                              placeholder="编辑分析内容..."
+                              autoFocus
+                            />
+                            <div className="analysis-edit-controls">
+                              <button 
+                                className="save-analysis-btn" 
+                                onClick={() => saveAnalysisEdit(idea.id)}
+                              >
+                                保存
+                              </button>
+                              <button 
+                                className="cancel-analysis-btn" 
+                                onClick={() => cancelAnalysisEdit(idea.id)}
+                              >
+                                取消
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <ReactMarkdown>
+                            {generatedIdeas[idea.id].analysis}
+                          </ReactMarkdown>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1137,6 +1621,8 @@ function App() {
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }
