@@ -18,7 +18,12 @@ function App() {
   // 拖动和缩放
   const [draggingIdeaId, setDraggingIdeaId] = useState(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [canvasScale, setCanvasScale] = useState(1);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  
+  // 画布拖拽移动
+  const [isDraggingCanvas, setIsDraggingCanvas] = useState(false);
+  const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
+  const [canvasDragStart, setCanvasDragStart] = useState({ x: 0, y: 0 });
   
   // 推荐问题
   const [recommendedQuestions, setRecommendedQuestions] = useState({});
@@ -150,7 +155,7 @@ function App() {
         text: currentIdea,
         x: Math.random() * 300 + 50,
         y: Math.random() * 200 + 50,
-        color: `hsl(${Math.random() * 360}, 70%, 60%)`
+        color: `hsl(${Math.random() * 60 + 180}, 30%, 85%)`
       };
       setIdeas([...ideas, newIdea]);
       // 初始化该idea的写作内容
@@ -193,6 +198,7 @@ function App() {
       setEditingAnalysisText(analysis.analysis);
     }
   };
+
 
   // 保存编辑的分析内容
   const saveAnalysisEdit = (ideaId) => {
@@ -290,7 +296,7 @@ function App() {
       text: '',
       x: originalIdea.x,
       y: originalIdea.y + 200, // 在下方，进一步增加间距
-      color: `hsl(${Math.random() * 360}, 70%, 60%)`,
+      color: `hsl(${Math.random() * 60 + 180}, 30%, 85%)`,
       parentId: id,
       connectionType: 'branch' // 分支类型
     };
@@ -336,7 +342,7 @@ function App() {
       text: '',
       x: originalIdea.x + 280, // 在右边，增加间距
       y: originalIdea.y,
-      color: originalIdea.color, // 继承父idea的颜色
+      color: `hsl(${Math.random() * 60 + 180}, 30%, 85%)`,
       parentId: id,
       connectionType: 'refine' // 细化类型
     };
@@ -430,10 +436,10 @@ function App() {
     const idea = ideas.find(i => i.id === id);
     const rect = canvasRef.current.getBoundingClientRect();
     setDraggingIdeaId(id);
-    // 计算鼠标相对于idea框左上角的偏移量（考虑canvas的缩放）
+    // 计算鼠标相对于idea框左上角的偏移量
     setDragOffset({
-      x: (e.clientX - rect.left) / canvasScale - idea.x,
-      y: (e.clientY - rect.top) / canvasScale - idea.y
+      x: e.clientX - rect.left - idea.x,
+      y: e.clientY - rect.top - idea.y
     });
   };
 
@@ -442,8 +448,8 @@ function App() {
     if (draggingIdeaId && canvasRef.current) {
       const rect = canvasRef.current.getBoundingClientRect();
       // 计算鼠标在canvas中的位置，减去初始偏移量，得到idea的新位置
-      const newX = Math.max(0, Math.min(rect.width / canvasScale - 220, (e.clientX - rect.left) / canvasScale - dragOffset.x));
-      const newY = Math.max(0, Math.min(rect.height / canvasScale - 100, (e.clientY - rect.top) / canvasScale - dragOffset.y));
+      const newX = Math.max(0, Math.min(rect.width - 220, e.clientX - rect.left - dragOffset.x));
+      const newY = Math.max(0, Math.min(rect.height - 100, e.clientY - rect.top - dragOffset.y));
       
       setIdeas(ideas.map(idea =>
         idea.id === draggingIdeaId ? { ...idea, x: newX, y: newY } : idea
@@ -456,13 +462,47 @@ function App() {
     setDraggingIdeaId(null);
   };
 
-  // 缩放canvas
-  const handleWheel = (e) => {
-    if (e.ctrlKey || e.metaKey) {
+  // 缩放功能
+  const handleZoomIn = () => {
+    setZoomLevel(prev => Math.min(prev + 0.25, 3));
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel(prev => Math.max(prev - 0.25, 0.5));
+  };
+
+  const handleResetZoom = () => {
+    setZoomLevel(1);
+    setCanvasOffset({ x: 0, y: 0 });
+  };
+
+  // 画布拖拽处理
+  const handleCanvasMouseDown = (e) => {
+    // 只有在点击空白区域（不是想法气泡）时才开始拖拽
+    const isIdeaBubble = e.target.closest('.idea-bubble');
+    
+    if (!isIdeaBubble) {
+      setIsDraggingCanvas(true);
+      setCanvasDragStart({
+        x: e.clientX - canvasOffset.x,
+        y: e.clientY - canvasOffset.y
+      });
       e.preventDefault();
-      const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      setCanvasScale(Math.max(0.5, Math.min(2, canvasScale * delta)));
     }
+  };
+
+  const handleCanvasMouseMove = (e) => {
+    if (isDraggingCanvas) {
+      const newOffset = {
+        x: e.clientX - canvasDragStart.x,
+        y: e.clientY - canvasDragStart.y
+      };
+      setCanvasOffset(newOffset);
+    }
+  };
+
+  const handleCanvasMouseUp = () => {
+    setIsDraggingCanvas(false);
   };
 
   // 监听鼠标事件
@@ -475,7 +515,19 @@ function App() {
         window.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [draggingIdeaId, ideas, dragOffset, canvasScale]);
+  }, [draggingIdeaId, ideas, dragOffset]);
+
+  // 监听画布拖拽事件
+  useEffect(() => {
+    if (isDraggingCanvas) {
+      window.addEventListener('mousemove', handleCanvasMouseMove);
+      window.addEventListener('mouseup', handleCanvasMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleCanvasMouseMove);
+        window.removeEventListener('mouseup', handleCanvasMouseUp);
+      };
+    }
+  }, [isDraggingCanvas, canvasDragStart]);
 
   // 获取当前框架项对应的字段名
   const getFieldName = (frameworkId) => {
@@ -939,243 +991,8 @@ function App() {
 
   return (
     <div className={`app ${isFullscreen ? 'fullscreen-mode' : ''}`}>
-      {isFullscreen ? (
-        // 全屏模式：只显示画布
-        <div className="fullscreen-canvas">
-          <div className="fullscreen-header">
-            <div className="fullscreen-title">
-              <span className="title-icon">💡</span>
-              <span className="title-text">Idea 迭代画布</span>
-            </div>
-            <div className="fullscreen-controls">
-              <div className="idea-input-group">
-                <input
-                  id="idea-input"
-                  type="text"
-                  value={currentIdea}
-                  onChange={(e) => setCurrentIdea(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="输入新想法..."
-                  className="idea-input"
-                />
-                <button onClick={addIdea} className="add-idea-btn">
-                  +
-                </button>
-              </div>
-              <div className="zoom-controls">
-                <button className="zoom-btn" onClick={() => setCanvasScale(Math.max(0.5, canvasScale - 0.1))}>-</button>
-                <span className="zoom-value">{Math.round(canvasScale * 100)}%</span>
-                <button className="zoom-btn" onClick={() => setCanvasScale(Math.min(2, canvasScale + 0.1))}>+</button>
-                <button className="zoom-btn reset-btn" onClick={() => setCanvasScale(1)}>⟲</button>
-                <button className="zoom-btn fullscreen-btn" onClick={toggleFullscreen} title={isFullscreen ? "退出全屏" : "全屏显示"}>
-                  {isFullscreen ? "⤓" : "⤢"}
-                </button>
-              </div>
-            </div>
-          </div>
-          
-          <div 
-            className="canvas-container fullscreen-canvas-container" 
-            ref={canvasRef}
-            onWheel={handleWheel}
-          >
-            <div 
-              className="canvas-content"
-              style={{ transform: `scale(${canvasScale})` }}
-            >
-            {/* 绘制连接箭头 */}
-            <svg className="connection-svg">
-              {ideas.map(idea => {
-                if (idea.parentId) {
-                  const parentIdea = ideas.find(i => i.id === idea.parentId);
-                  if (parentIdea) {
-                    // 计算箭头起点和终点（考虑气泡框的实际宽度和高度）
-                    const bubbleWidth = 200; // 气泡平均宽度
-                    const bubbleHeight = 100; // 气泡平均高度（包含按钮）
-                    
-                    const startX = parentIdea.x + (idea.connectionType === 'refine' ? bubbleWidth : bubbleWidth / 2);
-                    const startY = parentIdea.y + (idea.connectionType === 'refine' ? bubbleHeight / 2 : bubbleHeight + 5);
-                    const endX = idea.x + (idea.connectionType === 'refine' ? 0 : bubbleWidth / 2);
-                    const endY = idea.y + (idea.connectionType === 'refine' ? bubbleHeight / 2 : -5);
-                    
-                    // 创建路径
-                    const midX = (startX + endX) / 2;
-                    const midY = (startY + endY) / 2;
-                    let path;
-                    let strokeColor = '#667eea';
-                    
-                    if (idea.connectionType === 'refine') {
-                      path = `M ${startX} ${startY} L ${endX} ${endY}`; // 直线（细化）
-                    } else if (idea.connectionType === 'ai-generated') {
-                      path = `M ${startX} ${startY} C ${startX} ${midY}, ${endX} ${midY}, ${endX} ${endY}`; // S型曲线（AI生成）
-                      strokeColor = '#ffd700'; // 金色表示AI生成
-                    } else {
-                      path = `M ${startX} ${startY} C ${startX} ${midY}, ${endX} ${midY}, ${endX} ${endY}`; // S型曲线（分支）
-                    }
-                    
-                    return (
-                      <g key={`arrow-${idea.id}`}>
-                        <defs>
-                          <marker
-                            id={`arrowhead-${idea.id}`}
-                            markerWidth="10"
-                            markerHeight="10"
-                            refX="9"
-                            refY="3"
-                            orient="auto"
-                          >
-                            <polygon points="0 0, 10 3, 0 6" fill={strokeColor} />
-                          </marker>
-                        </defs>
-                        <path
-                          d={path}
-                          stroke={strokeColor}
-                          strokeWidth="2"
-                          fill="none"
-                          markerEnd={`url(#arrowhead-${idea.id})`}
-                          className="connection-line"
-                        />
-                      </g>
-                    );
-                  }
-                }
-                return null;
-              })}
-            </svg>
-            
-            {/* 想法气泡 */}
-            {ideas.map(idea => (
-              <div
-                key={idea.id}
-                className={`idea-bubble ${selectedIdeaId === idea.id ? 'selected' : ''} ${editingIdeaId === idea.id ? 'editing' : ''} ${draggingIdeaId === idea.id ? 'dragging' : ''}`}
-                style={{
-                  left: idea.x,
-                  top: idea.y,
-                  backgroundColor: idea.color,
-                  cursor: draggingIdeaId === idea.id ? 'grabbing' : 'grab'
-                }}
-                onMouseDown={(e) => handleIdeaMouseDown(idea.id, e)}
-                onClick={() => !editingIdeaId && !draggingIdeaId && selectIdea(idea.id)}
-              >
-                <div className="idea-header">
-                  {editingIdeaId === idea.id ? (
-                    <input
-                      type="text"
-                      className="idea-edit-input"
-                      value={editingText}
-                      onChange={(e) => setEditingText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          saveIdeaEdit(idea.id);
-                        } else if (e.key === 'Escape') {
-                          cancelIdeaEdit(idea.id);
-                        }
-                      }}
-                      onBlur={() => saveIdeaEdit(idea.id)}
-                      placeholder="输入新想法..."
-                      autoFocus
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  ) : (
-                    <>
-                      <span className="idea-text">{idea.text || '空白想法'}</span>
-                      <button className="remove-idea" onClick={(e) => removeIdea(idea.id, e)}>×</button>
-                    </>
-                  )}
-                </div>
-                {editingIdeaId !== idea.id && (
-                  <div className="idea-actions">
-                    <button 
-                      className={`idea-action-btn refine-btn ${isFullscreen ? 'disabled' : ''}`}
-                      onClick={isFullscreen ? undefined : (e) => refineIdea(idea.id, e)}
-                      title={isFullscreen ? "全屏模式下不可用" : "细化想法"}
-                      disabled={isFullscreen}
-                    >
-                      <span className="action-icon">🔍</span>
-                      <span className="action-text">细化</span>
-                    </button>
-                    <button 
-                      className={`idea-action-btn duplicate-btn ${isFullscreen ? 'disabled' : ''}`}
-                      onClick={isFullscreen ? undefined : (e) => duplicateIdea(idea.id, e)}
-                      title={isFullscreen ? "全屏模式下不可用" : "分支想法"}
-                      disabled={isFullscreen}
-                    >
-                      <span className="action-icon">📋</span>
-                      <span className="action-text">分支</span>
-                    </button>
-                  </div>
-                )}
-                
-                {/* LLM影响因素分析结果 - 只对新建的idea显示 */}
-                {generatedIdeas[idea.id] && (idea.parentId || idea.connectionType === 'refine' || idea.connectionType === 'branch') && (
-                  <div className="idea-analysis">
-                    <div className="analysis-header">
-                      <span className="analysis-icon">🔍</span>
-                      <span className="analysis-text">认知分析</span>
-                      <button 
-                        className="edit-analysis-btn" 
-                        onClick={(e) => startEditingAnalysis(idea.id, e)}
-                        title="编辑分析内容"
-                      >
-                        ✏️
-                      </button>
-                    </div>
-                    <div className="analysis-content">
-                      {editingAnalysisId === idea.id ? (
-                        <div className="analysis-edit-mode">
-                          <textarea
-                            className="analysis-edit-textarea"
-                            value={editingAnalysisText}
-                            onChange={(e) => setEditingAnalysisText(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && e.ctrlKey) {
-                                saveAnalysisEdit(idea.id);
-                              } else if (e.key === 'Escape') {
-                                cancelAnalysisEdit(idea.id);
-                              }
-                            }}
-                            onBlur={() => saveAnalysisEdit(idea.id)}
-                            placeholder="编辑分析内容..."
-                            autoFocus
-                          />
-                          <div className="analysis-edit-controls">
-                            <button 
-                              className="save-analysis-btn" 
-                              onClick={() => saveAnalysisEdit(idea.id)}
-                            >
-                              保存
-                            </button>
-                            <button 
-                              className="cancel-analysis-btn" 
-                              onClick={() => cancelAnalysisEdit(idea.id)}
-                            >
-                              取消
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <ReactMarkdown>
-                          {generatedIdeas[idea.id].analysis}
-                        </ReactMarkdown>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-            {ideas.length === 0 && (
-              <div className="empty-canvas">
-                <p>点击上方输入框添加想法</p>
-                <p>点击想法可以在下方编辑内容</p>
-              </div>
-            )}
-            </div>
-          </div>
-        </div>
-      ) : (
-        // 正常模式：显示完整界面
-        <>
-          <div className="app-header">
+      {/* 简化的全屏模式 - 只隐藏侧边栏，保留画布 */}
+      <div className="app-header">
             <h1>商业计划书写作-元反思工作台</h1>
             <div className="status-indicator">
               <span className="status-dot"></span>
@@ -1206,10 +1023,10 @@ function App() {
                   </button>
                 </div>
                  <div className="zoom-controls">
-                   <button className="zoom-btn" onClick={() => setCanvasScale(Math.max(0.5, canvasScale - 0.1))}>-</button>
-                   <span className="zoom-value">{Math.round(canvasScale * 100)}%</span>
-                   <button className="zoom-btn" onClick={() => setCanvasScale(Math.min(2, canvasScale + 0.1))}>+</button>
-                   <button className="zoom-btn reset-btn" onClick={() => setCanvasScale(1)}>⟲</button>
+                   <button className="zoom-btn" onClick={handleZoomOut}>-</button>
+                   <span className="zoom-value">{Math.round(zoomLevel * 100)}%</span>
+                   <button className="zoom-btn" onClick={handleZoomIn}>+</button>
+                   <button className="zoom-btn reset-btn" onClick={handleResetZoom}>⟲</button>
                    <button className="zoom-btn fullscreen-btn" onClick={toggleFullscreen} title={isFullscreen ? "退出全屏" : "全屏显示"}>
                      {isFullscreen ? "⤓" : "⤢"}
                    </button>
@@ -1220,11 +1037,22 @@ function App() {
             <div 
               className="canvas-container" 
               ref={canvasRef}
-              onWheel={handleWheel}
-              style={{ transform: `scale(${canvasScale})` }}
+              onMouseDown={handleCanvasMouseDown}
+              style={{
+                cursor: isDraggingCanvas ? 'grabbing' : 'grab'
+              }}
             >
-              {/* 绘制连接箭头 */}
-              <svg className="connection-svg">
+              {/* 画布内容容器 */}
+              <div 
+                className="canvas-content"
+                style={{
+                  transform: `translate(${canvasOffset.x}px, ${canvasOffset.y}px) scale(${zoomLevel})`,
+                  transformOrigin: 'center center',
+                  transition: isDraggingCanvas ? 'none' : 'transform 0.2s ease-out'
+                }}
+              >
+                {/* 绘制连接箭头 */}
+                <svg className="connection-svg">
                 {ideas.map(idea => {
                   if (idea.parentId) {
                     const parentIdea = ideas.find(i => i.id === idea.parentId);
@@ -1281,19 +1109,18 @@ function App() {
                   }
                   return null;
                 })}
-              </svg>
-              
-              {/* 想法气泡 */}
-              {ideas.map(idea => (
-                <div
-                  key={idea.id}
-                  className={`idea-bubble ${selectedIdeaId === idea.id ? 'selected' : ''} ${editingIdeaId === idea.id ? 'editing' : ''} ${draggingIdeaId === idea.id ? 'dragging' : ''}`}
-                  style={{
-                    left: idea.x,
-                    top: idea.y,
-                    backgroundColor: idea.color,
-                    cursor: draggingIdeaId === idea.id ? 'grabbing' : 'grab'
-                  }}
+                </svg>
+                {/* 想法气泡 */}
+                {ideas.map(idea => (
+                  <div
+                    key={idea.id}
+                    className={`idea-bubble ${selectedIdeaId === idea.id ? 'selected' : ''} ${editingIdeaId === idea.id ? 'editing' : ''} ${draggingIdeaId === idea.id ? 'dragging' : ''}`}
+                    style={{
+                      left: idea.x,
+                      top: idea.y,
+                      backgroundColor: idea.color,
+                      cursor: draggingIdeaId === idea.id ? 'grabbing' : 'grab'
+                    }}
                   onMouseDown={(e) => handleIdeaMouseDown(idea.id, e)}
                   onClick={() => !editingIdeaId && !draggingIdeaId && selectIdea(idea.id)}
                 >
@@ -1409,6 +1236,7 @@ function App() {
                   <p>点击想法可以在下方编辑内容</p>
                 </div>
               )}
+              </div>
             </div>
           </div>
 
@@ -1621,8 +1449,6 @@ function App() {
           </div>
         </div>
       </div>
-        </>
-      )}
     </div>
   );
 }

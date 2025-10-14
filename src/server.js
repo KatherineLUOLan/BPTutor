@@ -32,13 +32,26 @@ class StrategyAgent {
                 headers: {
                     'Authorization': `Bearer ${this.apiKey}`,
                     'Content-Type': 'application/json'
-                }
+                },
+                timeout: 30000 // 30秒超时
             });
 
             return response.data;
         } catch (error) {
-            console.error('GPT API 调用错误:', error.response?.data || error.message);
-            throw new Error('AI 服务暂时不可用');
+            // 详细的错误信息
+            if (error.code === 'ENOTFOUND') {
+                console.error('GPT API 域名解析失败:', error.message);
+                throw new Error('AI 服务域名无法访问，请检查网络连接');
+            } else if (error.code === 'ECONNREFUSED') {
+                console.error('GPT API 连接被拒绝:', error.message);
+                throw new Error('AI 服务连接被拒绝，服务可能已停止');
+            } else if (error.code === 'ETIMEDOUT') {
+                console.error('GPT API 请求超时:', error.message);
+                throw new Error('AI 服务响应超时，请稍后重试');
+            } else {
+                console.error('GPT API 调用错误:', error.response?.data || error.message);
+                throw new Error('AI 服务暂时不可用');
+            }
         }
     }
 
