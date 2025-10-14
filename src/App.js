@@ -1,1454 +1,1142 @@
+import React, { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import './App.css';
-import { useState, useEffect, useRef } from 'react';
-import ideaIcon from './assets/icons/idea.png';
-import writingIcon from './assets/icons/writing.png';
-import pitchingIcon from './assets/icons/pitching.png';
-import txtIcon from './assets/icons/txt.png';  // Import txt icon
-import AddIcon from './assets/icons/Add.png';  // Import Add icon
-import ChatAgent from './ChatAgent';
-
-// ReflectionModal Component
-const ReflectionModal = ({ isOpen, onClose, onSubmit }) => {
-  const initialState = {
-    skillImprovement: {
-      entrepreneurialThinking: [],
-      entrepreneurialSpirit: [],
-      entrepreneurialSkills: [],
-      otherSkills: ''
-    },
-    gptInfluence: '',
-    communication: '',
-    ideaModification: {
-      hasModification: false,
-      modifiedIdea: ''
-    }
-  };
-
-  const [skillImprovement, setSkillImprovement] = useState(initialState.skillImprovement);
-  const [gptInfluence, setGptInfluence] = useState(initialState.gptInfluence);
-  const [communication, setCommunication] = useState(initialState.communication);
-  const [ideaModification, setIdeaModification] = useState(initialState.ideaModification);
-
-  const handleSkillChange = (category, skill) => {
-    setSkillImprovement(prev => ({
-      ...prev,
-      [category]: prev[category].includes(skill)
-        ? prev[category].filter(item => item !== skill)
-        : [...prev[category], skill]
-    }));
-  };
-
-  const handleOtherSkillsChange = (value) => {
-    setSkillImprovement(prev => ({
-      ...prev,
-      otherSkills: value
-    }));
-  };
-
-  const resetForm = () => {
-    setSkillImprovement(initialState.skillImprovement);
-    setGptInfluence(initialState.gptInfluence);
-    setCommunication(initialState.communication);
-    setIdeaModification(initialState.ideaModification);
-  };
-
-  const handleModalSubmit = (e) => {
-    e.preventDefault();
-    onSubmit({ 
-      skillImprovement, 
-      gptInfluence, 
-      communication,
-      ideaModification 
-    });
-    resetForm();
-    onClose();
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="modal-overlay">
-      <div className="modal-content">
-        <h2>Reflection</h2>
-        <form onSubmit={handleModalSubmit}>
-          <div className="modal-section">
-            <h3>Skills Improvement</h3>
-            
-            <div className="skill-category">
-              <h4>Entrepreneurial Thinking</h4>
-              <div className="skill-options">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={skillImprovement.entrepreneurialThinking.includes('Innovative Thinking')}
-                    onChange={() => handleSkillChange('entrepreneurialThinking', 'Innovative Thinking')}
-                  />
-                  Innovative Thinking
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={skillImprovement.entrepreneurialThinking.includes('Opportunity Recognition')}
-                    onChange={() => handleSkillChange('entrepreneurialThinking', 'Opportunity Recognition')}
-                  />
-                  Opportunity Recognition
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={skillImprovement.entrepreneurialThinking.includes('Critical Thinking')}
-                    onChange={() => handleSkillChange('entrepreneurialThinking', 'Critical Thinking')}
-                  />
-                  Critical Thinking
-                </label>
-              </div>
-            </div>
-
-            <div className="skill-category">
-              <h4>Entrepreneurial Spirit</h4>
-              <div className="skill-options">
-                {[
-                  'Achievement Drive',
-                  'Self-Efficacy',
-                  'Innovation',
-                  'Stress Tolerance',
-                  'Risk-Taking',
-                  'Proactiveness',
-                  'Ambition'
-                ].map(skill => (
-                  <label key={skill}>
-                    <input
-                      type="checkbox"
-                      checked={skillImprovement.entrepreneurialSpirit.includes(skill)}
-                      onChange={() => handleSkillChange('entrepreneurialSpirit', skill)}
-                    />
-                    {skill}
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="skill-category">
-              <h4>Entrepreneurial Skills</h4>
-              <div className="skill-options">
-                {[
-                  'Leadership & Decision Making',
-                  'Organization & Execution',
-                  'Support & Cooperation',
-                  'Analysis & Expression',
-                  'Communication & Networking',
-                  'Resource Integration',
-                  'Risk Management',
-                  'Financial Knowledge',
-                  'Market & Sales'
-                ].map(skill => (
-                  <label key={skill}>
-                    <input
-                      type="checkbox"
-                      checked={skillImprovement.entrepreneurialSkills.includes(skill)}
-                      onChange={() => handleSkillChange('entrepreneurialSkills', skill)}
-                    />
-                    {skill}
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="skill-category">
-              <h4>Other Skills Improvement</h4>
-              <textarea
-                value={skillImprovement.otherSkills}
-                onChange={(e) => handleOtherSkillsChange(e.target.value)}
-                placeholder="Please describe other skills improvement..."
-              />
-            </div>
-          </div>
-
-          <div className="modal-section">
-            <h3>GPT's Influence</h3>
-            <textarea
-              value={gptInfluence}
-              onChange={(e) => setGptInfluence(e.target.value)}
-              placeholder="How did GPT's responses influence your ideas?"
-            />
-          </div>
-          <div className="modal-section">
-            <h3>Communication Reflection</h3>
-            <textarea
-              value={communication}
-              onChange={(e) => setCommunication(e.target.value)}
-              placeholder="What are your thoughts on the communication with GPT?"
-            />
-          </div>
-          <div className="modal-section">
-            <h3>Idea Modification</h3>
-            <div className="idea-modification">
-              <p>Do you want to modify your idea based on the communication?</p>
-              <div className="radio-group">
-                <label>
-                  <input
-                    type="radio"
-                    name="hasModification"
-                    checked={!ideaModification.hasModification}
-                    onChange={() => setIdeaModification({
-                      hasModification: false,
-                      modifiedIdea: ''
-                    })}
-                  />
-                  No
-                </label>
-                <label>
-                  <input
-                    type="radio"
-                    name="hasModification"
-                    checked={ideaModification.hasModification}
-                    onChange={() => setIdeaModification(prev => ({
-                      ...prev,
-                      hasModification: true
-                    }))}
-                  />
-                  Yes
-                </label>
-              </div>
-              {ideaModification.hasModification && (
-                <textarea
-                  value={ideaModification.modifiedIdea}
-                  onChange={(e) => setIdeaModification(prev => ({
-                    ...prev,
-                    modifiedIdea: e.target.value
-                  }))}
-                  placeholder="Enter your modified idea here..."
-                  className="idea-modification-input"
-                />
-              )}
-            </div>
-          </div>
-          <div className="modal-buttons">
-            <button type="submit" className="submit-btn">Submit</button>
-            <button type="button" onClick={onClose} className="cancel-btn">Cancel</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-// Add GuidanceModal component
-const GuidanceModal = ({ isOpen, onClose, section }) => {
-  if (!isOpen) return null;
-
-  const getGuidanceContent = () => {
-    switch (section) {
-      case 'idea':
-        return {
-          title: 'Guidance & Examples',
-          content: `1. You can input your business idea in the Horizontal line.
-
-2. Select any text and right-click to ask for AI assistant's opinion.
-
-Examples:
-1. "A mobile app that helps elderly people manage their medications"
-2. "An AI-powered platform for personalizing student learning paths"
-3. "A sustainable food delivery service using reusable containers"`
-        };
-      case 'painpoint':
-        return {
-          title: 'Pain Point Analysis Guidance',
-          content: `1. From the user's perspective, through research and feedback, accurately identify the specific problems and unmet needs of target customers in existing products or services.
-
-2. Pain points of smart fitness equipment: Traditional fitness methods lack personalized guidance, which makes it difficult for users to stick to them and the results are poor; at the same time, offline gyms are limited in time and space and cannot meet the fitness needs of busy office workers.
-
-Key Points:
-• Describe the specific problem
-• Explain who experiences this problem
-• Quantify the impact of the problem
-• Show why existing solutions are inadequate
-
-Examples:
-1. "40% of elderly patients miss their medication schedules"
-2. "Students struggle with one-size-fits-all learning approaches"
-3. "Current food delivery creates excessive packaging waste"`
-        };
-      case 'market':
-        return {
-          title: 'Market Analysis Guidance',
-          content: `1. Accurately identify target customer groups, analyze their preferences and purchasing behaviors, and evaluate market size and growth potential.
-
-2. Healthy food startups: The target market is young office workers who pay attention to health. The market size is growing rapidly, and plant-based and personalized nutrition trends are obvious.
-
-Key Points:
-• Define your target market size
-• Identify customer segments
-• Analyze market trends
-• Assess market growth potential
-
-Examples:
-1. "The global elderly care market is projected to reach $2.5 trillion by 2030"
-2. "EdTech market growing at 16.3% CAGR"
-3. "78% of consumers prefer eco-friendly businesses"`
-        };
-      case 'product':
-        return {
-          title: 'Product Introduction Guidance',
-          content: `1. Clearly describe the core functions of the product, target users, and how it solves market pain points, highlighting unique value and differentiated features.
-
-2. Smart fitness equipment: This is a smart fitness device for home users. It provides personalized fitness plans through AI technology to solve the pain point of users' lack of professional guidance. Its innovative sensor technology and intelligent algorithms are core competitiveness.
-
-Key Points:
-• Core features and benefits
-• Unique selling points
-• How it solves the pain point
-• Technical feasibility
-
-Examples:
-1. "Smart pill dispenser with mobile app integration"
-2. "AI algorithm that adapts to individual learning styles"
-3. "IoT-enabled reusable container system"`
-        };
-      case 'competitive':
-        return {
-          title: 'Competitive Analysis Guidance',
-          content: `1. Identify competitors and their strengths and weaknesses, analyze their products, market share, competitive strengths and weaknesses, and identify opportunities for differentiation.
-
-2. Smart fitness equipment: The main competitors are large fitness equipment brands and emerging technology fitness companies. Large brands have brand awareness and channel advantages, but lack product innovation; emerging companies focus on innovation but have a small market share. Entry barriers include technology research and development and brand building, and differentiation opportunities lie in AI personalized services.
-
-Key Points:
-• Identify direct and indirect competitors
-• Compare key features
-• Highlight your advantages
-• Market positioning
-
-Examples:
-1. "Comparison with traditional pill boxes and reminder apps"
-2. "Analysis of existing learning platforms"
-3. "Differentiation from standard delivery services"`
-        };
-      case 'feasibility':
-        return {
-          title: 'Feasibility Analysis Guidance',
-          content: `1. Analyze whether the technology required to realize the product or service is mature, whether the resources are available, and whether the team has the relevant capabilities.
-
-2. Smart fitness equipment: Technically, the current AI and sensor technologies are mature and can realize personalized fitness guidance; in the market, there is a strong demand for fitness, the target user group is large and has a high willingness to pay; financially, the cost is controllable and it is expected to achieve profitability within two years.
-
-Key Points:
-• Technical requirements
-• Resource needs
-• Operational processes
-• Risk assessment
-
-Examples:
-1. "IoT device manufacturing and app development requirements"
-2. "AI model training and data requirements"
-3. "Container logistics and cleaning facility needs"`
-        };
-      case 'financial':
-        return {
-          title: 'Financial Planning Guidance',
-          content: `1. Clarify the initial investment needs, including equipment, personnel, marketing and other costs, formulate revenue, cost and profit forecasts for the next 3-5 years, and ensure that the financial model is reasonable and feasible.
-
-2. Smart fitness equipment: The initial investment is 1 million yuan for R&D and equipment procurement, with an estimated revenue of 2 million yuan in the first year and profitability in the second year, with a return on investment of 30%, and a break-even point in the middle of the second year.
-
-Key Points:
-• Initial investment needed
-• Revenue model
-• Cost structure
-• Break-even analysis
-
-Examples:
-1. "Hardware costs, app development, marketing budget"
-2. "Subscription model, development costs, scaling plan"
-3. "Container costs, delivery infrastructure, operational expenses"`
-        };
-      case 'team':
-        return {
-          title: 'Team Introduction Guidance',
-          content: `1. Show the professional skills, work experience and successful cases of team members in related fields, and emphasize the complementarity and collaboration of the team.
-
-2. Smart Fitness Equipment Team: The core team members include a senior fitness equipment engineer, an AI algorithm expert and a marketing director. They have more than 10 years of experience in fitness equipment research and development, smart technology application and marketing promotion, and have successfully launched a number of best-selling fitness products.
-
-Key Points:
-• Key team members
-• Relevant experience
-• Roles and responsibilities
-• Required future hires
-
-Examples:
-1. "Healthcare technology experience, IoT development skills"
-2. "AI expertise, education sector background"
-3. "Logistics experience, sustainability credentials"`
-        };
-      case 'pitching':
-        return {
-          title: 'Pitching Guidance',
-          content: `1. In a limited time, clearly and concisely convey your business ideas, product advantages and market potential, focusing on solving pain points and unique selling points.
-
-2. Smart fitness equipment roadshow: The opening story tells a story about an office worker who has difficulty sticking to exercise due to lack of fitness guidance, and introduces how our smart fitness equipment can provide personalized guidance through AI technology to help users easily achieve their fitness goals. Finally, call on investors to join in and jointly promote the popularization of a healthy lifestyle.
-
-Key Points:
-• Clear value proposition
-• Market opportunity
-• Business model
-• Growth strategy
-
-Examples:
-1. "30-second elevator pitch"
-2. "5-minute investor presentation"
-3. "Detailed stakeholder proposal"`
-        };
-      default:
-        return {
-          title: 'Guidance & Examples',
-          content: 'Please proceed with your work in this section.'
-        };
-    }
-  };
-
-  const guidance = getGuidanceContent();
-
-  return (
-    <div className="modal-overlay">
-      <div className="modal-content guidance-modal">
-        <h2>{guidance.title}</h2>
-        <div className="guidance-content">
-          <pre>{guidance.content}</pre>
-        </div>
-        <div className="modal-buttons">
-          <button className="submit-btn" onClick={onClose}>Got it</button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 function App() {
-  const [currentSection, setCurrentSection] = useState('idea');
-  const [currentBPSection, setCurrentBPSection] = useState(null); // Initially no BP section is selected
-  const [messages, setMessages] = useState([]);
-  const [inputMessage, setInputMessage] = useState('');
-  const [content, setContent] = useState('');  // Global editor box content
-  const [ideaInput, setIdeaInput] = useState('');  // New state for idea input
-  const [ideaVersions, setIdeaVersions] = useState([]); // New state for idea versions history (hidden)
-  const [isIdeaConfirmed, setIsIdeaConfirmed] = useState(false); // New state for idea confirmation status
-  const [hasCommunicated, setHasCommunicated] = useState(false);
-  const [hasReflected, setHasReflected] = useState(false);
-  const [isReflectionModalOpen, setIsReflectionModalOpen] = useState(false);
-  const [reflections, setReflections] = useState([]);
-  const [completedSections, setCompletedSections] = useState([]);
-  const [bpSections] = useState([
-    { id: 'painpoint', name: 'Pain Point', order: 1 },
-    { id: 'market', name: 'Market Analysis', order: 2 },
-    { id: 'product', name: 'Product Introduction', order: 3 },
-    { id: 'competitive', name: 'Competitive Analysis', order: 4 },
-    { id: 'feasibility', name: 'Feasibility Analysis', order: 5 },
-    { id: 'financial', name: 'Financial Planning', order: 6 },
-    { id: 'team', name: 'Team Introduction', order: 7 }
-  ]);
-  const [isBPExpanded, setIsBPExpanded] = useState(true);  // Add expand/collapse state
-  const [selectedText, setSelectedText] = useState('');
-  const [floatingButton, setFloatingButton] = useState({ show: false, x: 0, y: 0 });
-  const [showGuidance, setShowGuidance] = useState(true);
-  const [currentGuidanceSection, setCurrentGuidanceSection] = useState('idea');
-
-  // Replace single content state with section-specific content states
-  const [ideaContent, setIdeaContent] = useState({
-    text: '',
-    timestamp: null,
-    isConfirmed: false,
-    displayText: ''
-  });
+  // 状态管理
+  const [ideas, setIdeas] = useState([]);
+  const [currentIdea, setCurrentIdea] = useState('');
+  const [selectedIdeaId, setSelectedIdeaId] = useState(null);
+  const [ideaWritings, setIdeaWritings] = useState({}); // 每个idea的写作内容
+  const [ideaChats, setIdeaChats] = useState({}); // 每个idea每个框架的聊天记录 {ideaId: {frameworkId: [messages]}}
+  const [chatInput, setChatInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedFrameworkId, setSelectedFrameworkId] = useState(1); // 当前选中的框架项
+  const [editingIdeaId, setEditingIdeaId] = useState(null); // 正在编辑的idea
+  const [editingText, setEditingText] = useState(''); // 编辑中的文本
   
-  const [bpContents, setBpContents] = useState({
-    painpoint: { text: '', timestamp: null },
-    market: { text: '', timestamp: null },
-    product: { text: '', timestamp: null },
-    competitive: { text: '', timestamp: null },
-    feasibility: { text: '', timestamp: null },
-    financial: { text: '', timestamp: null },
-    team: { text: '', timestamp: null }
-  });
+  // 拖动和缩放
+  const [draggingIdeaId, setDraggingIdeaId] = useState(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [canvasScale, setCanvasScale] = useState(1);
+  
+  // 推荐问题
+  const [recommendedQuestions, setRecommendedQuestions] = useState({});
+  const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
+  
+  // 引用
+  const canvasRef = useRef(null);
+  const chatEndRef = useRef(null);
 
-  const [pitchingContent, setPitchingContent] = useState({
-    text: '',
-    timestamp: null
-  });
-
-  // Add sectionContent state
-  const [sectionContent, setSectionContent] = useState({
-    painpoint: '',
-    product: '',
-    market: '',
-    business: '',
-    competitive: '',
-    feasibility: '',
-    financial: '',
-    team: '',
-    pitching: ''
-  });
-
-  // Add a ref for the root element
-  const appRef = useRef(null);
-
-  const [chatAgent] = useState(new ChatAgent());
-  const [nextStepSuggestion, setNextStepSuggestion] = useState('');
-
-  // Update setCurrentSection to include ChatAgent context
-  const updateCurrentSection = (section, subsection = null) => {
-    setCurrentSection(section);
-    if (subsection) {
-      setCurrentBPSection(subsection);
+  // 写作框架模板
+  const writingFramework = [
+    { 
+      id: 1, 
+      title: '用户痛点', 
+      placeholder: '描述目标用户面临的核心痛点...',
+      examples: [
+        '目标用户群体是谁？他们有什么共同特征？',
+        '用户当前是如何解决这个问题的？',
+        '这个痛点会给用户带来什么损失或困扰？',
+        '用户对解决这个问题的需求有多迫切？'
+      ]
+    },
+    { 
+      id: 2, 
+      title: '市场分析', 
+      placeholder: '分析市场规模、趋势和机会...',
+      examples: [
+        '目标市场的规模有多大？增长趋势如何？',
+        '市场中存在哪些细分领域和机会？',
+        '当前市场的主要驱动因素是什么？',
+        '有哪些政策或技术趋势会影响市场？'
+      ]
+    },
+    { 
+      id: 3, 
+      title: '产品介绍', 
+      placeholder: '介绍产品功能、特点和价值...',
+      examples: [
+        '产品的核心功能是什么？如何解决用户痛点？',
+        '产品有哪些独特的功能或特点？',
+        '产品能为用户创造什么具体价值？',
+        '产品的使用场景和流程是怎样的？'
+      ]
+    },
+    { 
+      id: 4, 
+      title: '竞争分析', 
+      placeholder: '分析竞争对手和差异化优势...',
+      examples: [
+        '主要竞争对手有哪些？他们的优劣势是什么？',
+        '我们的产品与竞品相比有什么差异化优势？',
+        '市场上还有哪些替代方案？',
+        '如何建立竞争壁垒？'
+      ]
+    },
+    { 
+      id: 5, 
+      title: '可行性分析', 
+      placeholder: '评估技术、运营和财务可行性...',
+      examples: [
+        '技术实现的难点和风险在哪里？',
+        '运营模式是否可持续？需要什么资源？',
+        '预期的成本结构和收入来源是什么？',
+        '可能面临哪些法律或监管风险？'
+      ]
+    },
+    { 
+      id: 6, 
+      title: '融资计划', 
+      placeholder: '说明融资需求、用途和回报...',
+      examples: [
+        '计划融资多少？分几轮？',
+        '资金主要用在哪些方面？',
+        '预期的估值和投资回报如何？',
+        '有哪些退出机制？'
+      ]
+    },
+    { 
+      id: 7, 
+      title: '团队介绍', 
+      placeholder: '介绍核心团队成员和优势...',
+      examples: [
+        '核心团队成员有哪些？各自的背景和专长是什么？',
+        '团队在这个领域有什么独特优势？',
+        '团队还缺少什么关键角色？',
+        '如何吸引和留住优秀人才？'
+      ]
     }
-    chatAgent.setContext(section, subsection);
-    setNextStepSuggestion(chatAgent.generateNextStepSuggestion());
+  ];
+
+  // 获取当前聊天消息
+  const getCurrentChatMessages = () => {
+    if (!selectedIdeaId || !selectedFrameworkId) return [];
+    return ideaChats[selectedIdeaId]?.[selectedFrameworkId] || [];
   };
 
-  // Update handleSendMessage to use ChatAgent
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-    if (inputMessage.trim()) {
-      // Add user message to chat and history
-      const userMessage = inputMessage;
-      setMessages(prev => [...prev, { text: userMessage, sender: 'user' }]);
-      chatAgent.addToHistory(userMessage, 'user');
-      
-      try {
-        // Build prompt using ChatAgent
-        const prompt = chatAgent.buildPrompt(
-          userMessage,
-          currentSection === 'bpwriting' ? currentBPSection : currentSection
-        );
+  // 滚动到聊天底部
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
-        const response = await fetch('http://localhost:5000/api/chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            message: prompt,
-            section: currentSection === 'bpwriting' ? currentBPSection : currentSection,
-            formatting: {
-              avoidSpecialCharacters: true,
-              useNumberedLists: false,
-              maxPoints: 2,
-              useParagraphBreaks: true,
-              removeSymbols: true
-            }
-          }),
-        });
+  useEffect(() => {
+    scrollToBottom();
+  }, [ideaChats, selectedIdeaId, selectedFrameworkId]);
 
-        const data = await response.json();
-        
-        if (data.success) {
-          // Process response using ChatAgent
-          const cleanResponse = chatAgent.processResponse(data.response);
-          
-          // Add AI response to chat and history
-          setMessages(prev => [...prev, { text: cleanResponse, sender: 'ai' }]);
-          chatAgent.addToHistory(cleanResponse, 'ai');
-
-          // Update next step suggestion
-          setNextStepSuggestion(chatAgent.generateNextStepSuggestion());
-
-          // Check if we should summarize the conversation
-          if (chatAgent.shouldSummarizeConversation()) {
-            const summary = chatAgent.summarizeConversation();
-            setMessages(prev => [...prev, { 
-              text: summary, 
-              sender: 'ai',
-              type: 'summary'
-            }]);
-          }
-        } else {
-          throw new Error(data.error);
+  // 添加想法到画布
+  const addIdea = () => {
+    if (currentIdea.trim()) {
+      const newIdea = {
+        id: Date.now(),
+        text: currentIdea,
+        x: Math.random() * 300 + 50,
+        y: Math.random() * 200 + 50,
+        color: `hsl(${Math.random() * 360}, 70%, 60%)`
+      };
+      setIdeas([...ideas, newIdea]);
+      // 初始化该idea的写作内容
+      setIdeaWritings({
+        ...ideaWritings,
+        [newIdea.id]: {
+          userPainPoints: '',
+          marketAnalysis: '',
+          productIntro: '',
+          competitiveAnalysis: '',
+          feasibilityAnalysis: '',
+          fundingPlan: '',
+          teamIntro: ''
         }
-      } catch (error) {
-        console.error('Error:', error);
-        const errorMessage = 'Sorry, there was an error processing your request. Please try again.';
-        setMessages(prev => [...prev, { text: errorMessage, sender: 'ai' }]);
-        chatAgent.addToHistory(errorMessage, 'ai');
-      }
-      
-      setInputMessage('');
+      });
+      // 初始化该idea的聊天记录
+      setIdeaChats({
+        ...ideaChats,
+        [newIdea.id]: {
+          1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: []
+        }
+      });
+      setCurrentIdea('');
+      // 自动选中新添加的idea
+      setSelectedIdeaId(newIdea.id);
     }
   };
 
-  // Function to get current section's content
-  const getCurrentContent = () => {
-    if (currentSection === 'bpwriting' && currentBPSection) {
-      return sectionContent[currentBPSection] || '';
-    } else if (currentSection === 'pitching') {
-      return sectionContent.pitching || '';
-    }
-    return '';
+  // 选择想法
+  const selectIdea = (id) => {
+    setSelectedIdeaId(id);
   };
 
-  // Function to update current section's content
-  const handleContentChange = (e) => {
-    const newText = e.target.value;
+  // 删除想法
+  const removeIdea = (id, e) => {
+    e.stopPropagation();
+    setIdeas(ideas.filter(idea => idea.id !== id));
+    // 删除该idea的写作内容
+    const newWritings = { ...ideaWritings };
+    delete newWritings[id];
+    setIdeaWritings(newWritings);
+    // 删除该idea的聊天记录
+    const newChats = { ...ideaChats };
+    delete newChats[id];
+    setIdeaChats(newChats);
+    // 如果删除的是当前选中的idea，清空选择
+    if (selectedIdeaId === id) {
+      setSelectedIdeaId(null);
+    }
+  };
+
+  // 复制想法（分支）- 纵向新增，清空所有内容
+  const duplicateIdea = (id, e) => {
+    e.stopPropagation();
+    const originalIdea = ideas.find(idea => idea.id === id);
+    if (!originalIdea) return;
     
-    if (currentSection === 'idea') {
-      setIdeaContent(prev => ({
-        ...prev,
-        text: newText
-      }));
-    } else if (currentSection === 'bpwriting' && currentBPSection) {
-      setSectionContent(prev => ({
-        ...prev,
-        [currentBPSection]: newText
-      }));
-      // Also update bpContents for tracking timestamps
-      setBpContents(prev => ({
-        ...prev,
-        [currentBPSection]: {
-          text: newText,
-          timestamp: new Date().toLocaleString()
+    const newIdea = {
+      id: Date.now(),
+      text: '',
+      x: originalIdea.x,
+      y: originalIdea.y + 200, // 在下方，进一步增加间距
+      color: `hsl(${Math.random() * 360}, 70%, 60%)`,
+      parentId: id,
+      connectionType: 'branch' // 分支类型
+    };
+    
+    setIdeas([...ideas, newIdea]);
+    
+    // 清空写作内容（新分支从头开始）
+    setIdeaWritings({
+      ...ideaWritings,
+      [newIdea.id]: {
+        userPainPoints: '',
+        marketAnalysis: '',
+        productIntro: '',
+        competitiveAnalysis: '',
+        feasibilityAnalysis: '',
+        fundingPlan: '',
+        teamIntro: ''
+      }
+    });
+    
+    // 清空聊天记录（新分支从头开始）
+    setIdeaChats({
+      ...ideaChats,
+      [newIdea.id]: {
+        1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: []
+      }
+    });
+    
+    // 进入编辑模式
+    setEditingIdeaId(newIdea.id);
+    setEditingText('');
+    setSelectedIdeaId(newIdea.id);
+  };
+
+  // 细化想法（创建子想法）- 横向细化，继承所有内容和历史
+  const refineIdea = (id, e) => {
+    e.stopPropagation();
+    const originalIdea = ideas.find(idea => idea.id === id);
+    if (!originalIdea) return;
+    
+    const newIdea = {
+      id: Date.now(),
+      text: '',
+      x: originalIdea.x + 280, // 在右边，增加间距
+      y: originalIdea.y,
+      color: originalIdea.color, // 继承父idea的颜色
+      parentId: id,
+      connectionType: 'refine' // 细化类型
+    };
+    
+    setIdeas([...ideas, newIdea]);
+    
+    // 继承写作内容（保持原有内容）
+    setIdeaWritings({
+      ...ideaWritings,
+      [newIdea.id]: {
+        ...ideaWritings[id]
+      }
+    });
+    
+    // 继承聊天记录（保持聊天历史）- 深度复制避免引用问题
+    const parentChats = ideaChats[id] || { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [] };
+    setIdeaChats({
+      ...ideaChats,
+      [newIdea.id]: {
+        1: (parentChats[1] || []).map(msg => ({ ...msg })),
+        2: (parentChats[2] || []).map(msg => ({ ...msg })),
+        3: (parentChats[3] || []).map(msg => ({ ...msg })),
+        4: (parentChats[4] || []).map(msg => ({ ...msg })),
+        5: (parentChats[5] || []).map(msg => ({ ...msg })),
+        6: (parentChats[6] || []).map(msg => ({ ...msg })),
+        7: (parentChats[7] || []).map(msg => ({ ...msg }))
+      }
+    });
+    
+    // 进入编辑模式
+    setEditingIdeaId(newIdea.id);
+    setEditingText('');
+    setSelectedIdeaId(newIdea.id);
+  };
+
+  // 保存编辑的idea名称
+  const saveIdeaEdit = (id) => {
+    if (editingText.trim()) {
+      setIdeas(ideas.map(idea => 
+        idea.id === id ? { ...idea, text: editingText.trim() } : idea
+      ));
+    } else {
+      // 如果没有输入内容，删除这个idea
+      removeIdeaWithoutEvent(id);
+    }
+    setEditingIdeaId(null);
+    setEditingText('');
+  };
+
+  // 取消编辑
+  const cancelIdeaEdit = (id) => {
+    if (!ideas.find(i => i.id === id)?.text) {
+      // 如果是新创建的空idea，删除它
+      removeIdeaWithoutEvent(id);
+    }
+    setEditingIdeaId(null);
+    setEditingText('');
+  };
+
+  // 删除idea（不需要event）
+  const removeIdeaWithoutEvent = (id) => {
+    setIdeas(ideas.filter(idea => idea.id !== id));
+    const newWritings = { ...ideaWritings };
+    delete newWritings[id];
+    setIdeaWritings(newWritings);
+    const newChats = { ...ideaChats };
+    delete newChats[id];
+    setIdeaChats(newChats);
+    if (selectedIdeaId === id) {
+      setSelectedIdeaId(null);
+    }
+  };
+
+  // 开始拖动idea
+  const handleIdeaMouseDown = (id, e) => {
+    if (editingIdeaId || e.target.closest('.remove-idea') || e.target.closest('.idea-action-btn')) return;
+    e.stopPropagation();
+    const idea = ideas.find(i => i.id === id);
+    const rect = canvasRef.current.getBoundingClientRect();
+    setDraggingIdeaId(id);
+    // 计算鼠标相对于idea框左上角的偏移量（考虑canvas的缩放）
+    setDragOffset({
+      x: (e.clientX - rect.left) / canvasScale - idea.x,
+      y: (e.clientY - rect.top) / canvasScale - idea.y
+    });
+  };
+
+  // 拖动idea
+  const handleMouseMove = (e) => {
+    if (draggingIdeaId && canvasRef.current) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      // 计算鼠标在canvas中的位置，减去初始偏移量，得到idea的新位置
+      const newX = Math.max(0, Math.min(rect.width / canvasScale - 220, (e.clientX - rect.left) / canvasScale - dragOffset.x));
+      const newY = Math.max(0, Math.min(rect.height / canvasScale - 100, (e.clientY - rect.top) / canvasScale - dragOffset.y));
+      
+      setIdeas(ideas.map(idea =>
+        idea.id === draggingIdeaId ? { ...idea, x: newX, y: newY } : idea
+      ));
+    }
+  };
+
+  // 停止拖动
+  const handleMouseUp = () => {
+    setDraggingIdeaId(null);
+  };
+
+  // 缩放canvas
+  const handleWheel = (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      setCanvasScale(Math.max(0.5, Math.min(2, canvasScale * delta)));
+    }
+  };
+
+  // 监听鼠标事件
+  useEffect(() => {
+    if (draggingIdeaId) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [draggingIdeaId, ideas, dragOffset, canvasScale]);
+
+  // 获取当前框架项对应的字段名
+  const getFieldName = (frameworkId) => {
+    const fieldMap = {
+      1: 'userPainPoints',
+      2: 'marketAnalysis',
+      3: 'productIntro',
+      4: 'competitiveAnalysis',
+      5: 'feasibilityAnalysis',
+      6: 'fundingPlan',
+      7: 'teamIntro'
+    };
+    return fieldMap[frameworkId];
+  };
+
+  // 更新当前idea的写作内容
+  const updateIdeaWriting = (field, value) => {
+    if (!selectedIdeaId) return;
+    setIdeaWritings({
+      ...ideaWritings,
+      [selectedIdeaId]: {
+        ...ideaWritings[selectedIdeaId],
+        [field]: value
+      }
+    });
+  };
+
+  // 保存写作内容
+  const saveWriting = () => {
+    if (!selectedIdeaId) {
+      alert('请先选择一个想法');
+      return;
+    }
+    const selectedIdea = ideas.find(idea => idea.id === selectedIdeaId);
+    const writing = ideaWritings[selectedIdeaId];
+    console.log('保存写作内容:', {
+      idea: selectedIdea?.text,
+      writing: writing
+    });
+    alert(`已保存 "${selectedIdea?.text}" 的写作内容！`);
+  };
+
+  // 清空当前写作
+  const clearWriting = () => {
+    if (!selectedIdeaId) {
+      alert('请先选择一个想法');
+      return;
+    }
+    if (window.confirm('确定要清空当前写作内容吗？')) {
+      setIdeaWritings({
+        ...ideaWritings,
+        [selectedIdeaId]: {
+          userPainPoints: '',
+          marketAnalysis: '',
+          productIntro: '',
+          competitiveAnalysis: '',
+          feasibilityAnalysis: '',
+          fundingPlan: '',
+          teamIntro: ''
         }
-      }));
-    } else if (currentSection === 'pitching') {
-      setPitchingContent({
-        text: newText,
-        timestamp: new Date().toLocaleString()
       });
     }
   };
 
-  const handleAddContent = (type) => {
-    let newContent = '';
-    switch(type) {
-      case 'idea':
-        newContent = '<div class="added-content">IDEA:</div>\n\n';
-        break;
-      case 'painpoint':
-        newContent = '<div class="added-content">PAIN POINT:</div>\n\n';
-        break;
-      case 'market':
-        newContent = '<div class="added-content">MARKET ANALYSIS:</div>\n\n';
-        break;
-      case 'product':
-        newContent = '<div class="added-content">PRODUCT INTRODUCTION:</div>\n\n';
-        break;
-      case 'competitive':
-        newContent = '<div class="added-content">COMPETITIVE ANALYSIS:</div>\n\n';
-        break;
-      case 'feasibility':
-        newContent = '<div class="added-content">FEASIBILITY ANALYSIS:</div>\n\n';
-        break;
-      case 'financial':
-        newContent = '<div class="added-content">FINANCIAL PLANNING:</div>\n\n';
-        break;
-      case 'team':
-        newContent = '<div class="added-content">TEAM INTRODUCTION:</div>\n\n';
-        break;
-      default:
-        newContent = '';
-    }
-    setContent(content + newContent);
-  };
+  // 发送聊天消息
+  const sendChatMessage = async (messageText = null) => {
+    const text = messageText || chatInput.trim();
+    if (!text || isLoading || !selectedIdeaId) return;
 
-  const renderGuidance = () => {
-    switch(currentSection) {
-      case 'idea':
-        return "1. You can input your business idea in the Horizontal line.\n\n2. Select any text and right-click to ask for AI assistant's opinion.";
-      case 'bpwriting':
-        switch(currentBPSection) {
-          case 'painpoint':
-            return "1. From the user's perspective, through research and feedback, accurately identify the specific problems and unmet needs of target customers in existing products or services.\n\n2. Pain points of smart fitness equipment: Traditional fitness methods lack personalized guidance, which makes it difficult for users to stick to them and the results are poor; at the same time, offline gyms are limited in time and space and cannot meet the fitness needs of busy office workers.";
-          case 'market':
-            return "1. Accurately identify target customer groups, analyze their preferences and purchasing behaviors, and evaluate market size and growth potential.\n\n2. Healthy food startups: The target market is young office workers who pay attention to health. The market size is growing rapidly, and plant-based and personalized nutrition trends are obvious.";
-          case 'product':
-            return "1. Clearly describe the core functions of the product, target users, and how it solves market pain points, highlighting unique value and differentiated features.\n\n2. Smart fitness equipment: This is a smart fitness device for home users. It provides personalized fitness plans through AI technology to solve the pain point of users' lack of professional guidance. Its innovative sensor technology and intelligent algorithms are core competitiveness.";
-          case 'competitive':
-            return "1. Identify competitors and their strengths and weaknesses, analyze their products, market share, competitive strengths and weaknesses, and identify opportunities for differentiation.\n\n2. Smart fitness equipment: The main competitors are large fitness equipment brands and emerging technology fitness companies. Large brands have brand awareness and channel advantages, but lack product innovation; emerging companies focus on innovation but have a small market share. Entry barriers include technology research and development and brand building, and differentiation opportunities lie in AI personalized services.";
-          case 'feasibility':
-            return "1. Analyze whether the technology required to realize the product or service is mature, whether the resources are available, and whether the team has the relevant capabilities.\n\n2. Smart fitness equipment: Technically, the current AI and sensor technologies are mature and can realize personalized fitness guidance; in the market, there is a strong demand for fitness, the target user group is large and has a high willingness to pay; financially, the cost is controllable and it is expected to achieve profitability within two years.";
-          case 'financial':
-            return "1. Clarify the initial investment needs, including equipment, personnel, marketing and other costs, formulate revenue, cost and profit forecasts for the next 3-5 years, and ensure that the financial model is reasonable and feasible.\n\n2. Smart fitness equipment: The initial investment is 1 million yuan for R&D and equipment procurement, with an estimated revenue of 2 million yuan in the first year and profitability in the second year, with a return on investment of 30%, and a break-even point in the middle of the second year.";
-          case 'team':
-            return "1. Show the professional skills, work experience and successful cases of team members in related fields, and emphasize the complementarity and collaboration of the team.\n\n2. Smart Fitness Equipment Team: The core team members include a senior fitness equipment engineer, an AI algorithm expert and a marketing director. They have more than 10 years of experience in fitness equipment research and development, smart technology application and marketing promotion, and have successfully launched a number of best-selling fitness products.";
-          default:
-            return "Select a section from the left navigation to view guidance.";
-        }
-      case 'pitching':
-        return "1. In a limited time, clearly and concisely convey your business ideas, product advantages and market potential, focusing on solving pain points and unique selling points.\n\n2. Smart fitness equipment roadshow: The opening story tells a story about an office worker who has difficulty sticking to exercise due to lack of fitness guidance, and introduces how our smart fitness equipment can provide personalized guidance through AI technology to help users easily achieve their fitness goals. Finally, call on investors to join in and jointly promote the popularization of a healthy lifestyle.";
-      default:
-        return "Select a section from the left navigation to view guidance.";
-    }
-  };
-
-  // Update handleCommunicate to use ChatAgent
-  const handleCommunicate = async () => {
-    if (selectedText) {
-      // Add user selection to chat and history
-      setMessages(prev => [...prev, { text: selectedText, sender: 'user' }]);
-      chatAgent.addToHistory(selectedText, 'user');
-      
-      try {
-        // Build prompt using ChatAgent
-        const prompt = chatAgent.buildPrompt(
-          selectedText,
-          currentSection === 'bpwriting' ? currentBPSection : currentSection,
-          selectedText
-        );
-
-        const response = await fetch('http://localhost:5000/api/chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            message: prompt,
-            section: currentSection === 'bpwriting' ? currentBPSection : currentSection,
-            formatting: {
-              avoidSpecialCharacters: true,
-              useNumberedLists: false,
-              maxPoints: 2,
-              useParagraphBreaks: true,
-              removeSymbols: true
-            }
-          }),
-        });
-
-        const data = await response.json();
-        
-        if (data.success) {
-          // Process response using ChatAgent
-          const cleanResponse = chatAgent.processResponse(data.response);
-          
-          // Add AI response to chat and history
-          setMessages(prev => [...prev, { text: cleanResponse, sender: 'ai' }]);
-          chatAgent.addToHistory(cleanResponse, 'ai');
-
-          // Update next step suggestion
-          setNextStepSuggestion(chatAgent.generateNextStepSuggestion());
-
-          // Set communication status
-          setHasCommunicated(true);
-        } else {
-          throw new Error(data.error);
-        }
-      } catch (error) {
-        console.error('Error:', error);
-        const errorMessage = 'Sorry, there was an error processing your request. Please try again.';
-        setMessages(prev => [...prev, { text: errorMessage, sender: 'ai' }]);
-        chatAgent.addToHistory(errorMessage, 'ai');
-      }
-    }
-    setFloatingButton({ show: false, x: 0, y: 0 });
-  };
-
-  // Helper function to get section-specific prompting context
-  const getSectionSpecificPrompt = (section, bpSection) => {
-    if (section === 'idea') {
-      return `For business ideas analysis and discussion:
-        Key Analysis Points:
-        - Market need and problem-solution fit
-        - Innovation and uniqueness
-        - Target market size and potential
-        - Initial feasibility
-
-        Discussion Topics:
-        - How might the idea evolve to better address market needs?
-        - What are potential pivots or expansions of this idea?
-        - How does this compare to existing solutions?
-        - What are the key assumptions that need validation?`;
-    }
-
-    switch (bpSection) {
-      case 'painpoint':
-        return `For pain point analysis and discussion:
-          Key Analysis Points:
-          - Problem severity and urgency
-          - Target customer impact
-          - Existing solution gaps
-          - Market research validation
-
-          Discussion Topics:
-          - How do customers currently solve this problem?
-          - What are the hidden costs or impacts of this pain point?
-          - Which customer segments feel this pain most acutely?
-          - What validation methods could strengthen this analysis?
-          - How might this pain point evolve in the future?`;
-
-      case 'market':
-        return `For market analysis and discussion:
-          Key Analysis Points:
-          - Market size and growth potential
-          - Customer segmentation
-          - Market trends and dynamics
-          - Competition landscape
-
-          Discussion Topics:
-          - What are emerging trends that could impact this market?
-          - How might customer needs evolve?
-          - What are potential market entry strategies?
-          - How can we validate market size assumptions?
-          - What adjacent markets might be relevant?`;
-
-      case 'product':
-        return `For product discussion and development:
-          Key Analysis Points:
-          - Value proposition
-          - Key features and benefits
-          - Technical feasibility
-          - Competitive advantages
-
-          Discussion Topics:
-          - How can the product evolve over time?
-          - What features might be added in future iterations?
-          - How does this align with user needs?
-          - What technical challenges need to be addressed?
-          - How can we maintain competitive advantage?`;
-
-      case 'competitive':
-        return `For competitive analysis and discussion:
-          Key Analysis Points:
-          - Competitor strengths/weaknesses
-          - Market positioning
-          - Entry barriers
-          - Competitive advantages
-
-          Discussion Topics:
-          - How might competitors respond to market entry?
-          - What are potential defensive strategies?
-          - How can we create sustainable advantages?
-          - What partnerships might strengthen our position?
-          - How might the competitive landscape evolve?`;
-
-      case 'feasibility':
-        return `For feasibility analysis and discussion:
-          Key Analysis Points:
-          - Technical requirements
-          - Resource availability
-          - Implementation challenges
-          - Risk factors
-
-          Discussion Topics:
-          - What are critical success factors?
-          - How can we mitigate key risks?
-          - What alternative approaches might work?
-          - How can we test assumptions?
-          - What partnerships or resources might help?`;
-
-      case 'financial':
-        return `For financial planning and discussion:
-          Key Analysis Points:
-          - Revenue model
-          - Cost structure
-          - Funding requirements
-          - Financial projections
-
-          Discussion Topics:
-          - What are alternative revenue streams?
-          - How can we optimize the cost structure?
-          - What are key financial risks and mitigations?
-          - How might unit economics improve at scale?
-          - What funding strategies should we consider?`;
-
-      case 'team':
-        return `For team analysis and discussion:
-          Key Analysis Points:
-          - Skills and experience
-          - Role alignment
-          - Team completeness
-          - Leadership capabilities
-
-          Discussion Topics:
-          - What additional roles might be needed?
-          - How can we address skill gaps?
-          - What organizational structure would work best?
-          - How should the team evolve as we grow?
-          - What advisory support might be valuable?`;
-
-      default:
-        return '';
-    }
-  };
-
-  const handleReflection = () => {
-    setIsReflectionModalOpen(true);
-  };
-
-  const handleReflectionSubmit = async (reflectionData) => {
-    const reflection = {
-      ...reflectionData,
-      timestamp: new Date().toLocaleString(),
-      section: currentSection === 'bpwriting' ? currentBPSection : currentSection
+    const userMessage = {
+      id: Date.now(),
+      type: 'user',
+      content: text,
+      timestamp: new Date()
     };
 
-    // If there's a modified idea, update the idea content first
-    if (reflection.ideaModification.hasModification && reflection.ideaModification.modifiedIdea.trim()) {
-      const timestamp = new Date().toLocaleString();
-      const newIdea = reflection.ideaModification.modifiedIdea.trim();
-      
-      // Update the idea content
-      setIdeaContent(prev => {
-        const newDisplayText = prev.displayText 
-          ? `${prev.displayText}\n\nModified Idea (${timestamp}):\n${newIdea}`
-          : `Initial Idea (${timestamp}):\n${newIdea}`;
-
-        return {
-          text: newIdea,
-          displayText: newDisplayText,
-          timestamp: timestamp,
-          isConfirmed: true
-        };
-      });
-    }
+    // 更新当前框架的聊天记录
+    const currentMessages = getCurrentChatMessages();
+    const newMessages = [...currentMessages, userMessage];
+    
+    setIdeaChats({
+      ...ideaChats,
+      [selectedIdeaId]: {
+        ...ideaChats[selectedIdeaId],
+        [selectedFrameworkId]: newMessages
+      }
+    });
+    
+    setChatInput('');
+    setIsLoading(true);
 
     try {
-      // Save reflection to backend
-      const response = await fetch('http://localhost:5000/api/reflections', {
+      const selectedIdea = ideas.find(i => i.id === selectedIdeaId);
+      const currentFramework = writingFramework.find(f => f.id === selectedFrameworkId);
+      
+      const response = await fetch('http://localhost:5000/api/strategy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
         },
-        body: JSON.stringify(reflection)
+        body: JSON.stringify({
+          query: text,
+          context: {
+            ideaText: selectedIdea?.text,
+            currentSection: currentFramework?.title,
+            allWritings: ideaWritings[selectedIdeaId], // 全局写作内容
+            currentSectionContent: ideaWritings[selectedIdeaId]?.[getFieldName(selectedFrameworkId)],
+            chatHistory: currentMessages.slice(-6) // 保留最近3轮对话
+          }
+        }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to save reflection');
-      }
-
-      // Update local state
-      setReflections(prev => [...prev, reflection]);
-      setHasReflected(true);
+      const data = await response.json();
       
-      // Close the modal after all updates are done
-      setIsReflectionModalOpen(false);
-    } catch (error) {
-      console.error('Error saving reflection:', error);
-      // Even if saving to backend fails, we still want to update local state
-      setReflections(prev => [...prev, reflection]);
-      setHasReflected(true);
-      setIsReflectionModalOpen(false);
-    }
-  };
-
-  const handleIdeaConfirm = () => {
-    if (ideaContent.text.trim()) {
-      const timestamp = new Date().toLocaleString();
-      setIdeaContent(prev => {
-        const newDisplayText = prev.isConfirmed 
-          ? prev.text  // If already confirmed and clicking to revise, just show the text
-          : `Initial Idea (${timestamp}):\n${prev.text}`;  // If confirming, show with timestamp
-        
-        return {
-          ...prev,
-          isConfirmed: !prev.isConfirmed,
-          timestamp: timestamp,
-          displayText: newDisplayText
+      if (data.status === 'success') {
+        const aiMessage = {
+          id: Date.now() + 1,
+          type: 'ai',
+          content: data.data.choices[0].message.content,
+          timestamp: new Date()
         };
-      });
-    }
-  };
-
-  const handleNextStep = () => {
-    // For idea section, require both confirmation and reflection
-    if (currentSection === 'idea' && (!ideaContent.isConfirmed || !hasReflected)) {
-      return;
-    }
-    
-    // For all other sections (including pitching), require communication and reflection
-    if (!hasCommunicated || !hasReflected) {
-      return;
-    }
-
-    if (currentSection === 'pitching') {
-      generateReport();
-    } else {
-      setCompletedSections(prev => [...prev, currentSection === 'bpwriting' ? currentBPSection : currentSection]);
-      setHasCommunicated(false);
-      setHasReflected(false);
-      setSelectedText('');
-      setFloatingButton({ show: false, x: 0, y: 0 });
-
-      if (currentSection === 'idea') {
-        setCurrentSection('bpwriting');
-        setCurrentBPSection('painpoint');
-        setIsBPExpanded(true);
-        setShowGuidance(true);
-        setCurrentGuidanceSection('painpoint');
-      } else if (currentSection === 'bpwriting') {
-        const currentIndex = bpSections.findIndex(section => section.id === currentBPSection);
-        if (currentBPSection === 'team') {
-          setCurrentSection('pitching');
-          setCurrentBPSection(null);
-          setShowGuidance(true);
-          setCurrentGuidanceSection('pitching');
-        } else if (currentIndex < bpSections.length - 1) {
-          const nextSection = bpSections[currentIndex + 1];
-          setCurrentBPSection(nextSection.id);
-          setShowGuidance(true);
-          setCurrentGuidanceSection(nextSection.id);
-        }
-      }
-    }
-  };
-
-  const handlePreviousStep = () => {
-    if (currentSection === 'bpwriting') {
-      if (currentBPSection === 'painpoint') {
-        // If we're at painpoint, go back to idea
-        setCurrentSection('idea');
-        setCurrentBPSection(null);
+        
+        const updatedMessages = [...newMessages, aiMessage];
+        setIdeaChats({
+          ...ideaChats,
+          [selectedIdeaId]: {
+            ...ideaChats[selectedIdeaId],
+            [selectedFrameworkId]: updatedMessages
+          }
+        });
       } else {
-        // Find the previous BP section
-        const currentIndex = bpSections.findIndex(section => section.id === currentBPSection);
-        if (currentIndex > 0) {
-          const previousSection = bpSections[currentIndex - 1];
-          setCurrentBPSection(previousSection.id);
-        }
+        throw new Error(data.error || '请求失败');
       }
-    } else if (currentSection === 'pitching') {
-      // If we're at pitching, go back to team
-      setCurrentSection('bpwriting');
-      setCurrentBPSection('team');
-    } else if (currentSection === 'idea') {
-      // If we're at idea, this is the first section, do nothing or show a message
+    } catch (error) {
+      console.error('聊天错误:', error);
+      const errorMessage = {
+        id: Date.now() + 1,
+        type: 'ai',
+        content: '抱歉，服务暂时不可用，请稍后重试。',
+        timestamp: new Date()
+      };
+      
+      setIdeaChats({
+        ...ideaChats,
+        [selectedIdeaId]: {
+          ...ideaChats[selectedIdeaId],
+          [selectedFrameworkId]: [...newMessages, errorMessage]
+        }
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 清空当前板块的聊天记录
+  const clearCurrentChat = () => {
+    if (!selectedIdeaId || !selectedFrameworkId) return;
+    if (window.confirm('确定要清空当前板块的聊天记录吗？')) {
+      setIdeaChats({
+        ...ideaChats,
+        [selectedIdeaId]: {
+          ...ideaChats[selectedIdeaId],
+          [selectedFrameworkId]: []
+        }
+      });
+      // 清空对应的推荐问题
+      const key = `${selectedIdeaId}-${selectedFrameworkId}`;
+      const newQuestions = { ...recommendedQuestions };
+      delete newQuestions[key];
+      setRecommendedQuestions(newQuestions);
+    }
+  };
+
+  // 生成推荐问题
+  const generateRecommendedQuestions = async (ideaId, frameworkId, messages) => {
+    if (!ideaId || !frameworkId || messages.length === 0) {
+      console.log('跳过生成推荐问题:', { ideaId, frameworkId, messagesLength: messages.length });
       return;
     }
     
-    // Reset states for new section
-    setHasCommunicated(false);
-    setHasReflected(false);
-    setSelectedText('');
-    setFloatingButton({ show: false, x: 0, y: 0 });
-  };
+    const key = `${ideaId}-${frameworkId}`;
+    console.log('开始生成推荐问题:', key);
+    setIsGeneratingQuestions(true);
 
-  const generateReport = () => {
-    let reportContent = `Business Plan Development Report\n`;
-    reportContent += `Generated on: ${new Date().toLocaleString()}\n\n`;
-
-    // Add idea section
-    reportContent += `1. Idea\n`;
-    reportContent += `====================\n`;
-    reportContent += `Content: ${ideaContent.text}\n`;
-    reportContent += `Confirmed: ${ideaContent.isConfirmed ? 'Yes' : 'No'}\n`;
-    reportContent += `Last Modified: ${ideaContent.timestamp}\n\n`;
-
-    // Add business plan sections
-    reportContent += `2. Business Plan Content\n`;
-    reportContent += `====================\n\n`;
-    Object.entries(bpContents).forEach(([section, content]) => {
-      const sectionName = bpSections.find(s => s.id === section)?.name || section;
-      reportContent += `${sectionName}\n`;
-      reportContent += `--------------------\n`;
-      reportContent += `Content: ${content.text}\n`;
-      reportContent += `Last Modified: ${content.timestamp}\n\n`;
-    });
-
-    // Add pitching section
-    reportContent += `3. Pitching\n`;
-    reportContent += `====================\n`;
-    reportContent += `Content: ${pitchingContent.text}\n`;
-    reportContent += `Last Modified: ${pitchingContent.timestamp}\n\n`;
-
-    // Add reflections section
-    reportContent += `4. Learning Reflections\n`;
-    reportContent += `====================\n\n`;
-    reflections.forEach((reflection, index) => {
-      reportContent += `Reflection ${index + 1} (${reflection.timestamp})\n`;
-      reportContent += `Section: ${reflection.section}\n\n`;
+    try {
+      const selectedIdea = ideas.find(i => i.id === ideaId);
+      const currentFramework = writingFramework.find(f => f.id === frameworkId);
       
-      // Skills Improvement
-      reportContent += `Skills Development:\n`;
-      if (reflection.skillImprovement.entrepreneurialThinking.length > 0) {
-        reportContent += `- Entrepreneurial Thinking: ${reflection.skillImprovement.entrepreneurialThinking.join(', ')}\n`;
-      }
-      if (reflection.skillImprovement.entrepreneurialSpirit.length > 0) {
-        reportContent += `- Entrepreneurial Spirit: ${reflection.skillImprovement.entrepreneurialSpirit.join(', ')}\n`;
-      }
-      if (reflection.skillImprovement.entrepreneurialSkills.length > 0) {
-        reportContent += `- Entrepreneurial Skills: ${reflection.skillImprovement.entrepreneurialSkills.join(', ')}\n`;
-      }
-      if (reflection.skillImprovement.otherSkills) {
-        reportContent += `- Other Skills: ${reflection.skillImprovement.otherSkills}\n`;
-      }
+      console.log('发送反思请求...');
+      const response = await fetch('http://localhost:5000/api/reflect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          context: {
+            ideaText: selectedIdea?.text,
+            currentSection: currentFramework?.title,
+            currentSectionContent: ideaWritings[ideaId]?.[getFieldName(frameworkId)],
+            chatHistory: messages.slice(-6) // 最近3轮对话
+          }
+        }),
+      });
+
+      const data = await response.json();
+      console.log('收到反思响应:', data);
       
-      reportContent += `\nGPT's Influence:\n${reflection.gptInfluence}\n\n`;
-      reportContent += `Communication Reflection:\n${reflection.communication}\n\n`;
+      if (data.status === 'success') {
+        const content = data.data.choices[0].message.content;
+        console.log('LLM返回内容:', content);
+        
+        // 解析返回的问题（假设返回格式为每行一个问题）
+        const questions = content.split('\n')
+          .filter(line => line.trim())
+          .map(line => line.replace(/^[0-9.\-*]+\s*/, '').trim())
+          .filter(q => q.length > 0)
+          .slice(0, 3); // 最多3个问题
+        
+        console.log('解析出的问题:', questions);
+        
+        // 使用函数式更新确保获取最新状态
+        setRecommendedQuestions(prev => ({
+          ...prev,
+          [key]: questions
+        }));
+        
+        console.log('推荐问题已保存:', key, questions);
+        
+        // 滚动到推荐问题区域
+        setTimeout(() => {
+          scrollToBottom();
+        }, 100);
+      } else {
+        console.error('API返回错误:', data);
+      }
+    } catch (error) {
+      console.error('生成推荐问题失败:', error);
+    } finally {
+      setIsGeneratingQuestions(false);
+    }
+  };
+
+  // 处理反思功能
+  const handleReflect = async () => {
+    if (!selectedIdeaId || isLoading) return;
+
+    const text = chatInput.trim();
+    const currentMessages = getCurrentChatMessages();
+
+    // 如果没有用户输入，生成推荐问题
+    if (!text) {
+      await generateRecommendedQuestions(selectedIdeaId, selectedFrameworkId, currentMessages);
+      return;
+    }
+
+    // 如果有用户输入，先添加用户消息
+    const userMessage = {
+      id: Date.now(),
+      type: 'user',
+      content: text,
+      timestamp: new Date(),
+      isReflection: true // 标记为反思消息
+    };
+
+    const newMessages = [...currentMessages, userMessage];
+    setIdeaChats({
+      ...ideaChats,
+      [selectedIdeaId]: {
+        ...ideaChats[selectedIdeaId],
+        [selectedFrameworkId]: newMessages
+      }
     });
-
-    // Create and download the report file
-    const blob = new Blob([reportContent], { type: 'text/plain' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `business_plan_report_${new Date().toISOString().split('T')[0]}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-  };
-
-  // Function to check if a section should be highlighted
-  const isSectionActive = (sectionId) => {
-    if (currentSection === 'idea' && sectionId === 'idea') {
-      return true;
-    }
-    if (currentSection === 'bpwriting' && sectionId === currentBPSection) {
-      return true;
-    }
-    if (currentSection === 'pitching' && sectionId === 'pitching') {
-      return true;
-    }
-    return false;
-  };
-
-  // Function to check if a section should be shown as completed
-  const isSectionCompleted = (sectionId) => {
-    return completedSections.includes(sectionId);
-  };
-
-  // Function to get current section title
-  const getCurrentSectionTitle = () => {
-    if (currentSection === 'idea') {
-      return 'IDEA';
-    } else if (currentSection === 'bpwriting' && currentBPSection) {
-      const section = bpSections.find(s => s.id === currentBPSection);
-      return section ? section.name.toUpperCase() : '';
-    } else if (currentSection === 'pitching') {
-      return 'PITCHING';
-    }
-    return '';
-  };
-
-  const getPitchingContent = () => {
-    let combinedContent = '';
     
-    // Add Pain Point content
-    if (sectionContent.painpoint) {
-      combinedContent += `PAIN POINT\n${sectionContent.painpoint}\n\n`;
-    }
+    setChatInput('');
+    currentMessages.push(userMessage);
+    
+    // 滚动到用户消息
+    setTimeout(() => {
+      scrollToBottom();
+    }, 100);
 
-    // Add Market Analysis content
-    if (sectionContent.market) {
-      combinedContent += `MARKET ANALYSIS\n${sectionContent.market}\n\n`;
-    }
+    setIsLoading(true);
 
-    // Add Product Introduction content
-    if (sectionContent.product) {
-      combinedContent += `PRODUCT INTRODUCTION\n${sectionContent.product}\n\n`;
-    }
+    try {
+      const selectedIdea = ideas.find(i => i.id === selectedIdeaId);
+      const currentFramework = writingFramework.find(f => f.id === selectedFrameworkId);
+      
+      const response = await fetch('http://localhost:5000/api/reflect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          context: {
+            ideaText: selectedIdea?.text,
+            currentSection: currentFramework?.title,
+            currentSectionContent: ideaWritings[selectedIdeaId]?.[getFieldName(selectedFrameworkId)],
+            chatHistory: currentMessages.slice(-6),
+            userQuestion: text // 有用户输入，传递给后端
+          }
+        }),
+      });
 
-    // Add Competitive Analysis content
-    if (sectionContent.competitive) {
-      combinedContent += `COMPETITIVE ANALYSIS\n${sectionContent.competitive}\n\n`;
-    }
+      const data = await response.json();
+      
+      if (data.status === 'success') {
+        const content = data.data.choices[0].message.content;
+        
+        const aiMessage = {
+          id: Date.now() + 1,
+          type: 'ai',
+          content: content,
+          timestamp: new Date(),
+          isReflection: true // 标记为反思消息
+        };
 
-    // Add Feasibility Analysis content
-    if (sectionContent.feasibility) {
-      combinedContent += `FEASIBILITY ANALYSIS\n${sectionContent.feasibility}\n\n`;
+        const updatedMessages = [...(ideaChats[selectedIdeaId]?.[selectedFrameworkId] || []), aiMessage];
+        
+        setIdeaChats({
+          ...ideaChats,
+          [selectedIdeaId]: {
+            ...ideaChats[selectedIdeaId],
+            [selectedFrameworkId]: updatedMessages
+          }
+        });
+        
+        // 延迟滚动，确保DOM已更新
+        setTimeout(() => {
+          scrollToBottom();
+        }, 100);
+      } else {
+        throw new Error(data.error || '反思功能调用失败');
+      }
+    } catch (error) {
+      console.error('反思功能出错:', error);
+      alert('反思功能出现错误，请稍后重试');
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    // Add Financial Planning content
-    if (sectionContent.financial) {
-      combinedContent += `FINANCIAL PLANNING\n${sectionContent.financial}\n\n`;
+  // 获取推荐的follow-up问题
+  const getRecommendedQuestions = () => {
+    if (!selectedIdeaId || !selectedFrameworkId) {
+      console.log('未选中idea或框架');
+      return [];
     }
-
-    // Add Team Introduction content
-    if (sectionContent.team) {
-      combinedContent += `TEAM INTRODUCTION\n${sectionContent.team}\n\n`;
+    
+    const currentMessages = getCurrentChatMessages();
+    const currentFramework = writingFramework.find(f => f.id === selectedFrameworkId);
+    
+    if (!currentFramework) return [];
+    
+    const key = `${selectedIdeaId}-${selectedFrameworkId}`;
+    console.log('获取推荐问题:', { key, messagesLength: currentMessages.length, hasQuestions: !!recommendedQuestions[key] });
+    
+    // 如果有对话历史，优先返回LLM生成的推荐问题
+    if (currentMessages.length > 0 && recommendedQuestions[key]) {
+      console.log('返回LLM生成的问题:', recommendedQuestions[key]);
+      return recommendedQuestions[key];
     }
+    
+    // 如果还没有对话，返回示例问题
+    if (currentMessages.length === 0) {
+      console.log('返回示例问题');
+      return currentFramework.examples.slice(0, 3);
+    }
+    
+    // 如果有对话但还没生成推荐问题，返回空数组（等待生成）
+    console.log('等待生成推荐问题...');
+    return [];
+  };
 
-    return combinedContent;
+  // 处理键盘事件
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (e.target.id === 'idea-input') {
+        addIdea();
+      } else if (e.target.id === 'chat-input') {
+        sendChatMessage();
+      }
+    }
   };
 
   return (
-    <div className="App" ref={appRef}>
-      <div className="app-container">
-        <div className="left-sidebar">
-          <h2 className="sidebar-title">Outline</h2>
-          <nav className="main-nav">
-            <div className="nav-item-container">
-              <div 
-                className={`main-nav-item ${isSectionActive('idea') ? 'active' : ''} ${isSectionCompleted('idea') ? 'completed' : ''}`}
-              >
-                <div className="nav-item-content">
-                  <img src={ideaIcon} alt="idea" className="nav-icon" />
-                  <span>Idea</span>
+    <div className="app">
+      <div className="app-header">
+        <h1>商业计划书写作-元反思工作台</h1>
+        <div className="status-indicator">
+          <span className="status-dot"></span>
+          服务运行中
+        </div>
+      </div>
+      
+      <div className="app-content">
+        {/* 左侧区域 */}
+        <div className="left-panel">
+          {/* 左上：Idea 迭代画布 */}
+          <div className="idea-canvas-section">
+            <div className="section-header">
+              <h3>💡 Idea 迭代画布</h3>
+              <div className="header-controls">
+                <div className="idea-input-group">
+                  <input
+                    id="idea-input"
+                    type="text"
+                    value={currentIdea}
+                    onChange={(e) => setCurrentIdea(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="输入新想法..."
+                    className="idea-input"
+                  />
+                  <button onClick={addIdea} className="add-idea-btn">
+                    +
+                  </button>
+                </div>
+                <div className="zoom-controls">
+                  <button className="zoom-btn" onClick={() => setCanvasScale(Math.max(0.5, canvasScale - 0.1))}>-</button>
+                  <span className="zoom-value">{Math.round(canvasScale * 100)}%</span>
+                  <button className="zoom-btn" onClick={() => setCanvasScale(Math.min(2, canvasScale + 0.1))}>+</button>
+                  <button className="zoom-btn reset-btn" onClick={() => setCanvasScale(1)}>⟲</button>
                 </div>
               </div>
             </div>
-
+            
             <div 
-              className={`main-nav-item bp-writing ${currentSection === 'bpwriting' ? 'active' : ''}`}
+              className="canvas-container" 
+              ref={canvasRef}
+              onWheel={handleWheel}
+              style={{
+                transform: `scale(${canvasScale})`,
+                transformOrigin: 'top left',
+                width: `${100 / canvasScale}%`,
+                height: `${100 / canvasScale}%`
+              }}
             >
-              <div className="nav-item-content">
-                <img src={writingIcon} alt="writing" className="nav-icon" />
-                <span>BP Writing</span>
-              </div>
-              <div className="nav-right-icons">
-                <span>{isBPExpanded ? '▼' : '▶'}</span>
+              {/* 绘制连接箭头 */}
+              <svg className="connection-svg">
+                {ideas.map(idea => {
+                  if (idea.parentId) {
+                    const parentIdea = ideas.find(i => i.id === idea.parentId);
+                    if (parentIdea) {
+                      // 计算箭头起点和终点（考虑气泡框的实际宽度和高度）
+                      const bubbleWidth = 200; // 气泡平均宽度
+                      const bubbleHeight = 100; // 气泡平均高度（包含按钮）
+                      
+                      const startX = parentIdea.x + (idea.connectionType === 'refine' ? bubbleWidth : bubbleWidth / 2);
+                      const startY = parentIdea.y + (idea.connectionType === 'refine' ? bubbleHeight / 2 : bubbleHeight + 5);
+                      const endX = idea.x + (idea.connectionType === 'refine' ? 0 : bubbleWidth / 2);
+                      const endY = idea.y + (idea.connectionType === 'refine' ? bubbleHeight / 2 : -5);
+                      
+                      // 创建路径
+                      const midX = (startX + endX) / 2;
+                      const midY = (startY + endY) / 2;
+                      const path = idea.connectionType === 'refine' 
+                        ? `M ${startX} ${startY} L ${endX} ${endY}` // 直线（细化）
+                        : `M ${startX} ${startY} C ${startX} ${midY}, ${endX} ${midY}, ${endX} ${endY}`; // S型曲线（分支）
+                      
+                      return (
+                        <g key={`arrow-${idea.id}`}>
+                          <defs>
+                            <marker
+                              id={`arrowhead-${idea.id}`}
+                              markerWidth="10"
+                              markerHeight="10"
+                              refX="9"
+                              refY="3"
+                              orient="auto"
+                            >
+                              <polygon points="0 0, 10 3, 0 6" fill="#667eea" />
+                            </marker>
+                          </defs>
+                          <path
+                            d={path}
+                            stroke="#667eea"
+                            strokeWidth="2"
+                            fill="none"
+                            markerEnd={`url(#arrowhead-${idea.id})`}
+                            className="connection-line"
+                          />
+                        </g>
+                      );
+                    }
+                  }
+                  return null;
+                })}
+              </svg>
+              
+              {/* 想法气泡 */}
+              {ideas.map(idea => (
+                <div
+                  key={idea.id}
+                  className={`idea-bubble ${selectedIdeaId === idea.id ? 'selected' : ''} ${editingIdeaId === idea.id ? 'editing' : ''} ${draggingIdeaId === idea.id ? 'dragging' : ''}`}
+                  style={{
+                    left: idea.x,
+                    top: idea.y,
+                    backgroundColor: idea.color,
+                    cursor: draggingIdeaId === idea.id ? 'grabbing' : 'grab'
+                  }}
+                  onMouseDown={(e) => handleIdeaMouseDown(idea.id, e)}
+                  onClick={() => !editingIdeaId && !draggingIdeaId && selectIdea(idea.id)}
+                >
+                  <div className="idea-header">
+                    {editingIdeaId === idea.id ? (
+                      <input
+                        type="text"
+                        className="idea-edit-input"
+                        value={editingText}
+                        onChange={(e) => setEditingText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            saveIdeaEdit(idea.id);
+                          } else if (e.key === 'Escape') {
+                            cancelIdeaEdit(idea.id);
+                          }
+                        }}
+                        onBlur={() => saveIdeaEdit(idea.id)}
+                        placeholder="输入新想法..."
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <>
+                        <span className="idea-text">{idea.text || '空白想法'}</span>
+                        <button className="remove-idea" onClick={(e) => removeIdea(idea.id, e)}>×</button>
+                      </>
+                    )}
+                  </div>
+                  {editingIdeaId !== idea.id && (
+                    <div className="idea-actions">
+                      <button 
+                        className="idea-action-btn refine-btn" 
+                        onClick={(e) => refineIdea(idea.id, e)}
+                        title="细化想法"
+                      >
+                        <span className="action-icon">🔍</span>
+                        <span className="action-text">细化</span>
+                      </button>
+                      <button 
+                        className="idea-action-btn duplicate-btn" 
+                        onClick={(e) => duplicateIdea(idea.id, e)}
+                        title="分支想法"
+                      >
+                        <span className="action-icon">📋</span>
+                        <span className="action-text">分支</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {ideas.length === 0 && (
+                <div className="empty-canvas">
+                  <p>点击上方输入框添加想法</p>
+                  <p>点击想法可以在下方编辑内容</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 左下：Writing 界面 */}
+          <div className="writing-section">
+            <div className="section-header">
+              <h3>✍️ Writing 工作区</h3>
+              <div className="writing-tools">
+                <span className="selected-idea-indicator">
+                  {selectedIdeaId ? 
+                    `正在编辑: ${ideas.find(i => i.id === selectedIdeaId)?.text}` : 
+                    '请先选择一个想法'}
+                </span>
+                <button className="tool-btn" onClick={saveWriting}>保存</button>
+                <button className="tool-btn" onClick={clearWriting}>清空</button>
               </div>
             </div>
-            {isBPExpanded && (
-              <div className="bp-content">
-                <div className="bp-nav">
-                  {bpSections.map((section) => (
-                    <div key={section.id} className="bp-nav-item-container">
-                      <div className="order-number">{section.order}</div>
-                      <div 
-                        className={`bp-nav-item ${isSectionActive(section.id) ? 'active' : ''} ${isSectionCompleted(section.id) ? 'completed' : ''}`}
-                      >
-                        {section.name}
-                      </div>
+            
+            <div className="writing-content">
+              {/* 左侧：写作框架 */}
+              <div className="writing-framework">
+                <h4>写作框架</h4>
+                {writingFramework.map(section => (
+                  <div 
+                    key={section.id} 
+                    className={`framework-section ${selectedFrameworkId === section.id ? 'active' : ''}`}
+                    onClick={() => setSelectedFrameworkId(section.id)}
+                  >
+                    <label>{section.title}</label>
+                  </div>
+                ))}
+              </div>
+
+              {/* 右侧：写作区域 */}
+              <div className="writing-editor">
+                {selectedIdeaId ? (
+                  <div className="editor-field">
+                    <div className="editor-field-header">
+                      {writingFramework.find(s => s.id === selectedFrameworkId)?.title}
+                    </div>
+                    <textarea
+                      value={ideaWritings[selectedIdeaId]?.[getFieldName(selectedFrameworkId)] || ''}
+                      onChange={(e) => updateIdeaWriting(getFieldName(selectedFrameworkId), e.target.value)}
+                      placeholder={writingFramework.find(s => s.id === selectedFrameworkId)?.placeholder}
+                      className="editor-textarea"
+                    />
+                  </div>
+                ) : (
+                  <div className="empty-editor">
+                    <p>👆 请先在画布上选择一个想法</p>
+                    <p>然后按框架填写内容</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 右侧：GPT 聊天窗口 */}
+        <div className="chat-section">
+          <div className="section-header">
+            <h3>🤖 GPT 策略顾问</h3>
+            <div className="chat-tools">
+              {selectedIdeaId && selectedFrameworkId && (
+                <span className="current-section-indicator">
+                  {writingFramework.find(f => f.id === selectedFrameworkId)?.title}
+                </span>
+              )}
+              <button className="tool-btn" onClick={clearCurrentChat}>清空</button>
+            </div>
+          </div>
+          
+          <div className="chat-messages">
+            {!selectedIdeaId ? (
+              <div className="empty-chat">
+                <p>👋 你好！我是你的策略顾问</p>
+                <p>请先在画布上选择一个想法</p>
+                <p>然后点击左侧的写作框架板块开始讨论</p>
+              </div>
+            ) : getCurrentChatMessages().length === 0 ? (
+              <div className="empty-chat">
+                <p>💡 关于「{writingFramework.find(f => f.id === selectedFrameworkId)?.title}」</p>
+                <p>你可以问我以下问题来细化想法：</p>
+                <div className="example-questions">
+                  {writingFramework.find(f => f.id === selectedFrameworkId)?.examples.map((example, index) => (
+                    <div 
+                      key={index} 
+                      className="example-question"
+                      onClick={() => sendChatMessage(example)}
+                    >
+                      💬 {example}
                     </div>
                   ))}
                 </div>
               </div>
-            )}
-
-            <div className="nav-item-container">
-              <div 
-                className={`main-nav-item ${isSectionActive('pitching') ? 'active' : ''} ${isSectionCompleted('pitching') ? 'completed' : ''}`}
-              >
-                <div className="nav-item-content">
-                  <img src={pitchingIcon} alt="pitching" className="nav-icon" />
-                  <span>Pitching</span>
-                </div>
-              </div>
-            </div>
-          </nav>
-        </div>
-
-        <div className="content-area">
-          <div className="content-wrapper">
-            <div className="editor-section">
-              <div className="editor-header">
-                <div className="editor-title">
-                  <img src={txtIcon} alt="document" className="editor-icon" />
-                  <span>Idea:</span>
-                  {currentSection === 'idea' ? (
-                    <div className="idea-input-container">
-                      <input
-                        type="text"
-                        className={`idea-input ${ideaContent.isConfirmed ? 'confirmed' : ''}`}
-                        value={ideaContent.text}
-                        onChange={(e) => setIdeaContent(prev => ({
-                          ...prev,
-                          text: e.target.value
-                        }))}
-                        onMouseUp={(e) => {
-                          const selection = window.getSelection();
-                          const selectedText = selection.toString().trim();
-                          if (!selectedText) {
-                            setSelectedText('');
-                            setFloatingButton({ show: false, x: 0, y: 0 });
-                          }
-                        }}
-                        onSelect={(e) => {
-                          const input = e.target;
-                          const selection = window.getSelection();
-                          const selectedText = selection.toString().trim();
-                          
-                          if (selectedText) {
-                            const rect = input.getBoundingClientRect();
-                            const x = rect.left + rect.width / 2;
-                            const y = rect.top + 50;
-                            
-                            setSelectedText(selectedText);
-                            setFloatingButton({
-                              show: true,
-                              x: x,
-                              y: y
-                            });
-                          }
-                        }}
-                        onBlur={(e) => {
-                          setTimeout(() => {
-                            const activeElement = document.activeElement;
-                            if (!activeElement.classList.contains('communicate-btn') && 
-                                !activeElement.classList.contains('floating-communicate')) {
-                              setSelectedText('');
-                              setFloatingButton({ show: false, x: 0, y: 0 });
-                            }
-                          }, 100);
-                        }}
-                        placeholder="Write your idea here..."
-                        readOnly={ideaContent.isConfirmed}
-                      />
-                      <button 
-                        className={`idea-confirm-btn ${ideaContent.isConfirmed ? 'revise' : ''}`}
-                        onClick={handleIdeaConfirm}
-                      >
-                        {ideaContent.isConfirmed ? 'Revise' : 'Confirm'}
-                      </button>
+            ) : (
+              <>
+                {getCurrentChatMessages().map(message => (
+                  <div key={message.id} className={`message ${message.type} ${message.isReflection ? 'reflection' : ''}`}>
+                    <div className="message-header">
+                      <span className="message-sender">
+                        {message.isReflection ? '💭 反思' : (message.type === 'user' ? '你' : 'GPT')}
+                      </span>
+                      <span className="message-time">
+                        {message.timestamp.toLocaleTimeString()}
+                      </span>
                     </div>
-                  ) : (
-                    <div className="idea-display">
-                      {ideaContent.text}
+                    <div className="message-content">
+                      {message.type === 'ai' ? (
+                        <div className="markdown-content">
+                          <ReactMarkdown>
+                            {message.content}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        message.content
+                      )}
                     </div>
-                  )}
-                </div>
-              </div>
-              <div className="section-header">
-                <h2>{getCurrentSectionTitle()}</h2>
-              </div>
-              <textarea
-                className="document-editor"
-                value={currentSection === 'idea' ? ideaContent.displayText : 
-                       currentSection === 'pitching' ? getPitchingContent() : 
-                       getCurrentContent()}
-                onChange={handleContentChange}
-                onMouseUp={(e) => {
-                  const selection = window.getSelection();
-                  const selectedText = selection.toString().trim();
-                  if (!selectedText) {
-                    setSelectedText('');
-                    setFloatingButton({ show: false, x: 0, y: 0 });
-                  }
-                }}
-                onSelect={(e) => {
-                  const textarea = e.target;
-                  const selection = window.getSelection();
-                  const selectedText = selection.toString().trim();
+                  </div>
+                ))}
+                {/* 推荐问题区域 */}
+                {getCurrentChatMessages().length > 0 && !isLoading && (() => {
+                  const messages = getCurrentChatMessages();
+                  const lastMessage = messages[messages.length - 1];
+                  // 如果最后一条消息是反思消息（用户有输入的反思对话），不显示推荐问题
+                  if (lastMessage?.isReflection) return null;
                   
-                  if (selectedText) {
-                    const rect = textarea.getBoundingClientRect();
-                    const x = rect.left + rect.width / 2;
-                    const y = rect.top + 50;
-                    
-                    setSelectedText(selectedText);
-                    setFloatingButton({
-                      show: true,
-                      x: x,
-                      y: y
-                    });
-                  }
-                }}
-                onBlur={(e) => {
-                  setTimeout(() => {
-                    const activeElement = document.activeElement;
-                    if (!activeElement.classList.contains('communicate-btn') && 
-                        !activeElement.classList.contains('floating-communicate')) {
-                      setSelectedText('');
-                      setFloatingButton({ show: false, x: 0, y: 0 });
-                    }
-                  }, 100);
-                }}
-                onMouseLeave={(e) => {
-                  const selection = window.getSelection();
-                  const selectedText = selection.toString().trim();
-                  if (!selectedText) {
-                    setSelectedText('');
-                    setFloatingButton({ show: false, x: 0, y: 0 });
-                  }
-                }}
-                placeholder={currentSection === 'idea' ? "Your confirmed idea will appear here..." : "Write your content here..."}
-                readOnly={currentSection === 'idea'}
-              />
-              <div className="editor-footer">
-                <button 
-                  className="footer-btn previous-btn"
-                  onClick={handlePreviousStep}
-                  disabled={currentSection === 'idea'}
-                >
-                  PREVIOUS STEP
-                </button>
-                <button 
-                  className={`footer-btn communicate-btn ${selectedText ? 'active' : ''} ${hasCommunicated ? 'completed' : ''}`}
-                  onClick={handleCommunicate}
-                  disabled={!selectedText}
-                >
-                  COMMUNICATE
-                </button>
-                <button 
-                  className={`footer-btn reflect-btn ${hasCommunicated ? 'active' : ''} ${hasReflected ? 'completed' : ''}`}
-                  onClick={handleReflection}
-                  disabled={!hasCommunicated}
-                >
-                  REFLECT
-                </button>
-                <button 
-                  className={`footer-btn next-btn ${
-                    currentSection === 'idea' 
-                      ? (ideaContent.isConfirmed && hasReflected ? 'active' : '')
-                      : (hasCommunicated && hasReflected ? 'active' : '')
-                  }`}
-                  onClick={handleNextStep}
-                  disabled={
-                    currentSection === 'idea'
-                      ? (!hasReflected || !ideaContent.isConfirmed)
-                      : (!hasCommunicated || !hasReflected)
-                  }
-                >
-                  {currentSection === 'pitching' ? 'REPORT' : 'NEXT STEP'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="right-sidebar">
-          <div className="guidance-panel">
-            <h3>Guidance & Examples</h3>
-            <p>{renderGuidance()}</p>
-          </div>
-          <div className="chat-section">
-            <div className="chat-messages">
-              {messages.map((message, index) => (
-                <div 
-                  key={index} 
-                  className={`message ${message.sender} ${message.type || ''}`}
-                  dangerouslySetInnerHTML={{ __html: message.text }}
-                />
-              ))}
-              {nextStepSuggestion && (
-                <div className="message suggestion">
-                  {nextStepSuggestion}
+                  return (
+                    <>
+                      {isGeneratingQuestions && (
+                        <div className="recommended-questions">
+                          <div className="recommended-header">
+                            <span className="recommend-icon">💡</span>
+                            <span className="recommend-text">正在根据反思生成推荐问题...</span>
+                          </div>
+                        </div>
+                      )}
+                      {!isGeneratingQuestions && getRecommendedQuestions().length > 0 && (
+                        <div className="recommended-questions">
+                          <div className="recommended-header">
+                            <span className="recommend-icon">💡</span>
+                            <span className="recommend-text">Idea反思参考</span>
+                          </div>
+                          <div className="recommended-list">
+                            {getRecommendedQuestions().map((question, index) => (
+                              <div 
+                                key={index}
+                                className="recommended-item"
+                                onClick={() => sendChatMessage(question)}
+                              >
+                                <span className="recommend-bullet">→</span>
+                                <span className="recommend-question">{question}</span>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="recommended-footer">
+                            💡 是否有idea的细化或修改，在canvas上请修改！~
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </>
+            )}
+            {isLoading && (
+              <div className="message ai">
+                <div className="message-header">
+                  <span className="message-sender">GPT</span>
                 </div>
-              )}
+                <div className="message-content">
+                  <div className="typing-indicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+          
+          <div className="chat-input-group">
+            <textarea
+              id="chat-input"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="输入你的问题或想法..."
+              className="chat-input"
+              rows="3"
+            />
+            <div className="chat-buttons">
+              <button 
+                onClick={handleReflect} 
+                className="reflect-btn"
+                disabled={isLoading}
+                title={chatInput.trim() ? '对当前输入进行反思分析' : '基于对话历史进行反思'}
+              >
+                💭 反思
+              </button>
+              <button 
+                onClick={() => sendChatMessage()} 
+                className="send-btn"
+                disabled={isLoading || !chatInput.trim()}
+              >
+                {isLoading ? '发送中...' : '发送'}
+              </button>
             </div>
-            <form onSubmit={handleSendMessage} className="chat-input-form">
-              <input
-                type="text"
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                placeholder="Ask AI Assistant..."
-                className="chat-input"
-              />
-              <button type="submit" className="send-button">Send</button>
-            </form>
           </div>
         </div>
-
-        {/* Floating button at top level */}
-        {floatingButton.show && (
-          <button 
-            className="floating-communicate"
-            style={{ 
-              position: 'fixed',
-              left: `${floatingButton.x}px`,
-              top: `${floatingButton.y}px`,
-              transform: 'translate(-50%, 0)',
-              zIndex: 999999,
-              backgroundColor: '#1a73e8',
-              color: 'white',
-              padding: '8px 16px',
-              borderRadius: '4px',
-              fontSize: '14px',
-              fontWeight: '500',
-              border: 'none',
-              boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
-              cursor: 'pointer'
-            }}
-            onClick={handleCommunicate}
-          >
-            Communicate
-          </button>
-        )}
       </div>
-      <ReflectionModal
-        isOpen={isReflectionModalOpen}
-        onClose={() => setIsReflectionModalOpen(false)}
-        onSubmit={handleReflectionSubmit}
-      />
-      <GuidanceModal 
-        isOpen={showGuidance} 
-        onClose={() => setShowGuidance(false)}
-        section={currentGuidanceSection}
-      />
     </div>
   );
 }
