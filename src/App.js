@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import ReactMarkdown from 'react-markdown';
 import './App.css';
 
 function App() {
@@ -25,9 +24,6 @@ function App() {
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
   const [canvasDragStart, setCanvasDragStart] = useState({ x: 0, y: 0 });
   
-  // 推荐问题
-  const [recommendedQuestions, setRecommendedQuestions] = useState({});
-  const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
   
   // 写作内容分析和新idea建议
   const [previousWritings, setPreviousWritings] = useState({}); // 存储每个idea的写作内容历史
@@ -40,14 +36,18 @@ function App() {
   // 引用
   const canvasRef = useRef(null);
   const chatEndRef = useRef(null);
-  const writingAnalysisTimeoutRef = useRef(null);
 
   // 写作框架模板
   const writingFramework = [
     { 
       id: 1, 
       title: '用户痛点', 
-      placeholder: '描述目标用户面临的核心痛点...',
+      placeholder: `🎯 用户痛点分析核心要素：
+
+• 明确目标用户群体（年龄、职业、收入、行为特征）
+• 识别具体痛点（效率低、成本高、体验差、安全风险等）
+• 量化痛点影响（时间损失、金钱损失、情感困扰）
+• 分析用户当前解决方案的不足`,
       examples: [
         '目标用户群体是谁？他们有什么共同特征？',
         '用户当前是如何解决这个问题的？',
@@ -58,7 +58,12 @@ function App() {
     { 
       id: 2, 
       title: '市场分析', 
-      placeholder: '分析市场规模、趋势和机会...',
+      placeholder: `📊 市场分析核心要素：
+
+• 市场规模分析（TAM/SAM/SOM模型）
+• 市场增长趋势（年复合增长率、驱动因素）
+• 市场细分（按地域、用户群体、应用场景）
+• 市场机会识别（空白市场、新兴需求）`,
       examples: [
         '目标市场的规模有多大？增长趋势如何？',
         '市场中存在哪些细分领域和机会？',
@@ -69,7 +74,12 @@ function App() {
     { 
       id: 3, 
       title: '产品介绍', 
-      placeholder: '介绍产品功能、特点和价值...',
+      placeholder: `🚀 产品介绍核心要素：
+
+• 产品核心功能（解决什么问题）
+• 产品独特价值（与竞品的差异化）
+• 产品使用场景（何时何地使用）
+• 产品技术特点（创新点、技术优势）`,
       examples: [
         '产品的核心功能是什么？如何解决用户痛点？',
         '产品有哪些独特的功能或特点？',
@@ -80,7 +90,12 @@ function App() {
     { 
       id: 4, 
       title: '竞争分析', 
-      placeholder: '分析竞争对手和差异化优势...',
+      placeholder: `⚔️ 竞争分析核心要素：
+
+• 直接竞争对手分析（产品、价格、渠道、营销）
+• 间接竞争对手识别（替代方案）
+• 竞争优势分析（技术、资源、团队、模式）
+• 竞争壁垒构建（专利、数据、网络效应）`,
       examples: [
         '主要竞争对手有哪些？他们的优劣势是什么？',
         '我们的产品与竞品相比有什么差异化优势？',
@@ -91,7 +106,12 @@ function App() {
     { 
       id: 5, 
       title: '可行性分析', 
-      placeholder: '评估技术、运营和财务可行性...',
+      placeholder: `✅ 可行性分析核心要素：
+
+• 技术可行性（技术难度、开发周期、技术风险）
+• 运营可行性（团队能力、资源需求、执行难度）
+• 财务可行性（成本结构、收入模式、盈利预测）
+• 法律合规性（政策风险、知识产权、监管要求）`,
       examples: [
         '技术实现的难点和风险在哪里？',
         '运营模式是否可持续？需要什么资源？',
@@ -102,7 +122,12 @@ function App() {
     { 
       id: 6, 
       title: '融资计划', 
-      placeholder: '说明融资需求、用途和回报...',
+      placeholder: `💰 融资计划核心要素：
+
+• 融资需求（金额、轮次、时间节点）
+• 资金用途（研发、市场、运营、团队）
+• 估值依据（市场比较法、现金流折现法）
+• 投资回报（退出方式、预期回报率）`,
       examples: [
         '计划融资多少？分几轮？',
         '资金主要用在哪些方面？',
@@ -113,7 +138,12 @@ function App() {
     { 
       id: 7, 
       title: '团队介绍', 
-      placeholder: '介绍核心团队成员和优势...',
+      placeholder: `👥 团队介绍核心要素：
+
+• 核心团队背景（教育、工作经验、专业技能）
+• 团队互补性（技术、市场、运营、财务）
+• 团队执行力（过往成就、项目经验）
+• 团队发展规划（人才招聘、激励机制）`,
       examples: [
         '核心团队成员有哪些？各自的背景和专长是什么？',
         '团队在这个领域有什么独特优势？',
@@ -138,14 +168,7 @@ function App() {
     scrollToBottom();
   }, [ideaChats, selectedIdeaId, selectedFrameworkId]);
 
-  // 清理防抖定时器
-  useEffect(() => {
-    return () => {
-      if (writingAnalysisTimeoutRef.current) {
-        clearTimeout(writingAnalysisTimeoutRef.current);
-      }
-    };
-  }, []);
+
 
   // 添加想法到画布
   const addIdea = () => {
@@ -254,6 +277,29 @@ function App() {
             timestamp: new Date()
           }
         });
+        
+        // 同时在聊天框中输出分析结果并询问是否需要修改
+        const analysisMessage = {
+          id: Date.now(),
+          type: 'ai',
+          content: `📊 影响因素分析完成\n\n${content}\n\n💡 你觉得这个分析准确吗？有什么需要修改或补充的地方吗？`,
+          timestamp: new Date(),
+          isAnalysis: true // 标记为分析消息
+        };
+        
+        // 如果当前选中的是同一个idea，则添加到聊天记录
+        if (selectedIdeaId === idea.id) {
+          const currentMessages = getCurrentChatMessages();
+          const newMessages = [...currentMessages, analysisMessage];
+          
+          setIdeaChats({
+            ...ideaChats,
+            [idea.id]: {
+              ...ideaChats[idea.id],
+              [selectedFrameworkId]: newMessages
+            }
+          });
+        }
       }
     } catch (error) {
       console.error('新idea分析失败:', error);
@@ -547,11 +593,15 @@ function App() {
   const updateIdeaWriting = (field, value) => {
     if (!selectedIdeaId) return;
     
-    // 保存当前写作内容作为历史版本
+    // 保存当前写作内容作为历史版本，包括原始想法文本
     const currentWritings = ideaWritings[selectedIdeaId] || {};
+    const selectedIdea = ideas.find(i => i.id === selectedIdeaId);
     setPreviousWritings({
       ...previousWritings,
-      [selectedIdeaId]: { ...currentWritings }
+      [selectedIdeaId]: { 
+        ...currentWritings,
+        originalIdea: selectedIdea?.text || ''
+      }
     });
     
     // 更新写作内容
@@ -563,72 +613,8 @@ function App() {
       }
     };
     setIdeaWritings(newWritings);
-    
-    // 防抖调用写作内容分析
-    if (writingAnalysisTimeoutRef.current) {
-      clearTimeout(writingAnalysisTimeoutRef.current);
-    }
-    
-    writingAnalysisTimeoutRef.current = setTimeout(() => {
-      analyzeWritingChanges(selectedIdeaId, newWritings[selectedIdeaId]);
-    }, 2000); // 2秒防抖
   };
 
-  // 分析写作内容变化并生成新idea建议
-  const analyzeWritingChanges = async (ideaId, currentWritings) => {
-    if (!ideaId || !currentWritings || isAnalyzingWriting) return;
-    
-    const previousWritingsForIdea = previousWritings[ideaId] || {};
-    const selectedIdea = ideas.find(i => i.id === ideaId);
-    const currentFramework = writingFramework.find(f => f.id === selectedFrameworkId);
-    
-    // 检查是否有实际内容变化
-    const hasChanges = Object.keys(currentWritings).some(field => {
-      const previous = previousWritingsForIdea[field] || '';
-      const current = currentWritings[field] || '';
-      return current.trim() !== previous.trim() && current.trim().length > 0;
-    });
-    
-    if (!hasChanges) return;
-    
-    setIsAnalyzingWriting(true);
-    
-    try {
-      const response = await fetch('http://localhost:5000/api/analyze-writing', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          context: {
-            ideaText: selectedIdea?.text,
-            previousWritings: previousWritingsForIdea,
-            currentWritings: currentWritings,
-            currentSection: currentFramework?.title
-          }
-        }),
-      });
-
-      const data = await response.json();
-      
-      if (data.status === 'success') {
-        const content = data.data.choices[0].message.content;
-        
-        // 存储LLM影响因素分析结果
-        setGeneratedIdeas({
-          ...generatedIdeas,
-          [ideaId]: {
-            analysis: content,
-            timestamp: new Date()
-          }
-        });
-      }
-    } catch (error) {
-      console.error('写作内容分析失败:', error);
-    } finally {
-      setIsAnalyzingWriting(false);
-    }
-  };
 
 
   // 保存写作内容
@@ -672,6 +658,7 @@ function App() {
   const sendChatMessage = async (messageText = null) => {
     const text = messageText || chatInput.trim();
     if (!text || isLoading || !selectedIdeaId) return;
+
 
     const userMessage = {
       id: Date.now(),
@@ -758,224 +745,93 @@ function App() {
     }
   };
 
-  // 清空当前板块的聊天记录
-  const clearCurrentChat = () => {
-    if (!selectedIdeaId || !selectedFrameworkId) return;
-    if (window.confirm('确定要清空当前板块的聊天记录吗？')) {
-      setIdeaChats({
-        ...ideaChats,
-        [selectedIdeaId]: {
-          ...ideaChats[selectedIdeaId],
-          [selectedFrameworkId]: []
-        }
+  // 导出所有聊天记录
+  const exportChatHistory = () => {
+    // 收集所有聊天记录
+    const allMessages = [];
+    
+    // 遍历所有idea和板块的聊天记录
+    Object.keys(ideaChats).forEach(ideaId => {
+      const idea = ideas.find(i => i.id === parseInt(ideaId));
+      const ideaName = idea?.text || '未命名想法';
+      
+      Object.keys(ideaChats[ideaId]).forEach(frameworkId => {
+        const framework = writingFramework.find(f => f.id === parseInt(frameworkId));
+        const frameworkName = framework?.title || '未知板块';
+        const messages = ideaChats[ideaId][frameworkId] || [];
+        
+        // 为每条消息添加上下文信息
+        messages.forEach(message => {
+          allMessages.push({
+            ...message,
+            ideaId: parseInt(ideaId),
+            ideaName,
+            frameworkId: parseInt(frameworkId),
+            frameworkName
+          });
+        });
       });
-      // 清空对应的推荐问题
-      const key = `${selectedIdeaId}-${selectedFrameworkId}`;
-      const newQuestions = { ...recommendedQuestions };
-      delete newQuestions[key];
-      setRecommendedQuestions(newQuestions);
-    }
-  };
-
-  // 生成推荐问题
-  const generateRecommendedQuestions = async (ideaId, frameworkId, messages) => {
-    if (!ideaId || !frameworkId || messages.length === 0) {
-      console.log('跳过生成推荐问题:', { ideaId, frameworkId, messagesLength: messages.length });
+    });
+    
+    if (allMessages.length === 0) {
+      alert('当前没有聊天记录可以导出');
       return;
     }
     
-    const key = `${ideaId}-${frameworkId}`;
-    console.log('开始生成推荐问题:', key);
-    setIsGeneratingQuestions(true);
-
-    try {
-      const selectedIdea = ideas.find(i => i.id === ideaId);
-      const currentFramework = writingFramework.find(f => f.id === frameworkId);
-      
-      console.log('发送反思请求...');
-      const response = await fetch('http://localhost:5000/api/reflect', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          context: {
-            ideaText: selectedIdea?.text,
-            currentSection: currentFramework?.title,
-            currentSectionContent: ideaWritings[ideaId]?.[getFieldName(frameworkId)],
-            chatHistory: messages.slice(-6) // 最近3轮对话
-          }
-        }),
-      });
-
-      const data = await response.json();
-      console.log('收到反思响应:', data);
-      
-      if (data.status === 'success') {
-        const content = data.data.choices[0].message.content;
-        console.log('LLM返回内容:', content);
-        
-        // 解析返回的问题（假设返回格式为每行一个问题）
-        const questions = content.split('\n')
-          .filter(line => line.trim())
-          .map(line => line.replace(/^[0-9.\-*]+\s*/, '').trim())
-          .filter(q => q.length > 0)
-          .slice(0, 3); // 最多3个问题
-        
-        console.log('解析出的问题:', questions);
-        
-        // 使用函数式更新确保获取最新状态
-        setRecommendedQuestions(prev => ({
-          ...prev,
-          [key]: questions
-        }));
-        
-        console.log('推荐问题已保存:', key, questions);
-        
-        // 滚动到推荐问题区域
-        setTimeout(() => {
-          scrollToBottom();
-        }, 100);
-      } else {
-        console.error('API返回错误:', data);
+    // 按时间戳排序
+    allMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    
+    // 构建导出内容
+    let exportContent = `所有聊天记录导出\n`;
+    exportContent += `导出时间: ${new Date().toLocaleString('zh-CN')}\n`;
+    exportContent += `总记录数: ${allMessages.length}\n`;
+    exportContent += `\n${'='.repeat(60)}\n\n`;
+    
+    // 按想法和板块分组显示
+    const groupedMessages = {};
+    allMessages.forEach(message => {
+      const key = `${message.ideaName}_${message.frameworkName}`;
+      if (!groupedMessages[key]) {
+        groupedMessages[key] = {
+          ideaName: message.ideaName,
+          frameworkName: message.frameworkName,
+          messages: []
+        };
       }
-    } catch (error) {
-      console.error('生成推荐问题失败:', error);
-    } finally {
-      setIsGeneratingQuestions(false);
-    }
-  };
-
-  // 处理反思功能
-  const handleReflect = async () => {
-    if (!selectedIdeaId || isLoading) return;
-
-    const text = chatInput.trim();
-    const currentMessages = getCurrentChatMessages();
-
-    // 如果没有用户输入，生成推荐问题
-    if (!text) {
-      await generateRecommendedQuestions(selectedIdeaId, selectedFrameworkId, currentMessages);
-      return;
-    }
-
-    // 如果有用户输入，先添加用户消息
-    const userMessage = {
-      id: Date.now(),
-      type: 'user',
-      content: text,
-      timestamp: new Date(),
-      isReflection: true // 标记为反思消息
-    };
-
-    const newMessages = [...currentMessages, userMessage];
-    setIdeaChats({
-      ...ideaChats,
-      [selectedIdeaId]: {
-        ...ideaChats[selectedIdeaId],
-        [selectedFrameworkId]: newMessages
+      groupedMessages[key].messages.push(message);
+    });
+    
+    // 添加分组后的聊天记录
+    Object.values(groupedMessages).forEach((group, groupIndex) => {
+      exportContent += `\n【${group.ideaName} - ${group.frameworkName}】\n`;
+      exportContent += `${'─'.repeat(40)}\n`;
+      
+      group.messages.forEach((message, index) => {
+        const timestamp = message.timestamp.toLocaleString('zh-CN');
+        const sender = message.type === 'user' ? '用户' : 'GPT';
+        exportContent += `${index + 1}. [${timestamp}] ${sender}:\n`;
+        exportContent += `${message.content}\n\n`;
+      });
+      
+      if (groupIndex < Object.values(groupedMessages).length - 1) {
+        exportContent += `\n${'='.repeat(60)}\n`;
       }
     });
     
-    setChatInput('');
-    currentMessages.push(userMessage);
-    
-    // 滚动到用户消息
-    setTimeout(() => {
-      scrollToBottom();
-    }, 100);
-
-    setIsLoading(true);
-
-    try {
-      const selectedIdea = ideas.find(i => i.id === selectedIdeaId);
-      const currentFramework = writingFramework.find(f => f.id === selectedFrameworkId);
-      
-      const response = await fetch('http://localhost:5000/api/reflect', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          context: {
-            ideaText: selectedIdea?.text,
-            currentSection: currentFramework?.title,
-            currentSectionContent: ideaWritings[selectedIdeaId]?.[getFieldName(selectedFrameworkId)],
-            chatHistory: currentMessages.slice(-6),
-            userQuestion: text // 有用户输入，传递给后端
-          }
-        }),
-      });
-
-      const data = await response.json();
-      
-      if (data.status === 'success') {
-        const content = data.data.choices[0].message.content;
-        
-        const aiMessage = {
-          id: Date.now() + 1,
-          type: 'ai',
-          content: content,
-          timestamp: new Date(),
-          isReflection: true // 标记为反思消息
-        };
-
-        const updatedMessages = [...(ideaChats[selectedIdeaId]?.[selectedFrameworkId] || []), aiMessage];
-        
-        setIdeaChats({
-          ...ideaChats,
-          [selectedIdeaId]: {
-            ...ideaChats[selectedIdeaId],
-            [selectedFrameworkId]: updatedMessages
-          }
-        });
-        
-        // 延迟滚动，确保DOM已更新
-        setTimeout(() => {
-          scrollToBottom();
-        }, 100);
-      } else {
-        throw new Error(data.error || '反思功能调用失败');
-      }
-    } catch (error) {
-      console.error('反思功能出错:', error);
-      alert('反思功能出现错误，请稍后重试');
-    } finally {
-      setIsLoading(false);
-    }
+    // 创建下载链接
+    const blob = new Blob([exportContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `所有聊天记录_${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
-  // 获取推荐的follow-up问题
-  const getRecommendedQuestions = () => {
-    if (!selectedIdeaId || !selectedFrameworkId) {
-      console.log('未选中idea或框架');
-      return [];
-    }
-    
-    const currentMessages = getCurrentChatMessages();
-    const currentFramework = writingFramework.find(f => f.id === selectedFrameworkId);
-    
-    if (!currentFramework) return [];
-    
-    const key = `${selectedIdeaId}-${selectedFrameworkId}`;
-    console.log('获取推荐问题:', { key, messagesLength: currentMessages.length, hasQuestions: !!recommendedQuestions[key] });
-    
-    // 如果有对话历史，优先返回LLM生成的推荐问题
-    if (currentMessages.length > 0 && recommendedQuestions[key]) {
-      console.log('返回LLM生成的问题:', recommendedQuestions[key]);
-      return recommendedQuestions[key];
-    }
-    
-    // 如果还没有对话，返回示例问题
-    if (currentMessages.length === 0) {
-      console.log('返回示例问题');
-      return currentFramework.examples.slice(0, 3);
-    }
-    
-    // 如果有对话但还没生成推荐问题，返回空数组（等待生成）
-    console.log('等待生成推荐问题...');
-    return [];
-  };
+
+
 
   // 处理键盘事件
   const handleKeyPress = (e) => {
@@ -1221,9 +1077,7 @@ function App() {
                             </div>
                           </div>
                         ) : (
-                          <ReactMarkdown>
-                            {generatedIdeas[idea.id].analysis}
-                          </ReactMarkdown>
+                          generatedIdeas[idea.id].analysis
                         )}
                       </div>
                     </div>
@@ -1305,7 +1159,7 @@ function App() {
                   {writingFramework.find(f => f.id === selectedFrameworkId)?.title}
                 </span>
               )}
-              <button className="tool-btn" onClick={clearCurrentChat}>清空</button>
+              <button className="tool-btn" onClick={exportChatHistory}>导出聊天记录</button>
             </div>
           </div>
           
@@ -1334,72 +1188,22 @@ function App() {
               </div>
             ) : (
               <>
+                {/* 聊天消息区域 */}
                 {getCurrentChatMessages().map(message => (
-                  <div key={message.id} className={`message ${message.type} ${message.isReflection ? 'reflection' : ''}`}>
+                  <div key={message.id} className={`message ${message.type} ${message.isReflection ? 'reflection' : ''} ${message.isAnalysis ? 'analysis' : ''}`}>
                     <div className="message-header">
                       <span className="message-sender">
-                        {message.isReflection ? '💭 反思' : (message.type === 'user' ? '你' : 'GPT')}
+                        {message.isReflection ? '💭 反思' : message.isAnalysis ? '📊 分析' : (message.type === 'user' ? '你' : 'GPT')}
                       </span>
                       <span className="message-time">
                         {message.timestamp.toLocaleTimeString()}
                       </span>
                     </div>
                     <div className="message-content">
-                      {message.type === 'ai' ? (
-                        <div className="markdown-content">
-                          <ReactMarkdown>
-                            {message.content}
-                          </ReactMarkdown>
-                        </div>
-                      ) : (
-                        message.content
-                      )}
+                      {message.content}
                     </div>
                   </div>
                 ))}
-                {/* 推荐问题区域 */}
-                {getCurrentChatMessages().length > 0 && !isLoading && (() => {
-                  const messages = getCurrentChatMessages();
-                  const lastMessage = messages[messages.length - 1];
-                  // 如果最后一条消息是反思消息（用户有输入的反思对话），不显示推荐问题
-                  if (lastMessage?.isReflection) return null;
-                  
-                  return (
-                    <>
-                      {isGeneratingQuestions && (
-                        <div className="recommended-questions">
-                          <div className="recommended-header">
-                            <span className="recommend-icon">💡</span>
-                            <span className="recommend-text">正在根据反思生成推荐问题...</span>
-                          </div>
-                        </div>
-                      )}
-                      {!isGeneratingQuestions && getRecommendedQuestions().length > 0 && (
-                        <div className="recommended-questions">
-                          <div className="recommended-header">
-                            <span className="recommend-icon">💡</span>
-                            <span className="recommend-text">Idea反思参考</span>
-                          </div>
-                          <div className="recommended-list">
-                            {getRecommendedQuestions().map((question, index) => (
-                              <div 
-                                key={index}
-                                className="recommended-item"
-                                onClick={() => sendChatMessage(question)}
-                              >
-                                <span className="recommend-bullet">→</span>
-                                <span className="recommend-question">{question}</span>
-                              </div>
-                            ))}
-                          </div>
-                          <div className="recommended-footer">
-                            💡 是否有idea的细化或修改，在canvas上请修改！~
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
               </>
             )}
             {isLoading && (
@@ -1430,14 +1234,6 @@ function App() {
               rows="3"
             />
             <div className="chat-buttons">
-              <button 
-                onClick={handleReflect} 
-                className="reflect-btn"
-                disabled={isLoading}
-                title={chatInput.trim() ? '对当前输入进行反思分析' : '基于对话历史进行反思'}
-              >
-                💭 反思
-              </button>
               <button 
                 onClick={() => sendChatMessage()} 
                 className="send-btn"

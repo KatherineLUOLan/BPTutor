@@ -11,8 +11,8 @@ app.use(cors());
 app.use(express.json());
 
 // GPT API 配置
-const GPT_API_URL = "https://aigc-api.hkust-gz.edu.cn/v1/chat/completions";
-const GPT_API_KEY = "77f41932a23a429cb68b84e3cd7c8321914531b95d8d48b8a21dc1f983ec51ea";
+const GPT_API_URL = "https://tbnx.plus7.plus/v1/chat/completions";
+const GPT_API_KEY = "sk-Jc6pIOYsdGyPfrFXKQX4WnTISwUmKUKtaofbS3LnExgkPwT7";
 
 // 策略代理实现
 class StrategyAgent {
@@ -23,9 +23,32 @@ class StrategyAgent {
 
     async generateResponse(messages) {
         try {
+            // 系统级instruction - 创业反思教练
+            const systemInstruction = {
+                role: "system",
+                content: `你是一位"创业反思教练"，负责为用户提供全面、深入的分析和建议时，既回答问题又引导用户思考。
+
+你的核心职责：
+1. 首先回答用户的具体问题，提供专业建议和分析
+2. 在回答的基础上，适当提出1-2个开放式问题引导用户深入思考
+3. 帮助用户经历从记忆 → 理解 → 应用 → 分析 → 评价 → 创造的思维过程
+4. 在单次回答中包含所有相关信息，避免分多轮回答
+
+
+回答风格：
+- 先给出专业、具体的答案和建议，提供数据支撑和逻辑推理
+- 然后根据用户的思考阶段，选择合适层级提出引导性问题，如"你觉得这个方案如何？""还有什么其他考虑吗？"
+- 语气温和、鼓励、探究，帮助用户觉察自己的思维方式和决策依据
+
+记住：要先回答问题，再引导思考，而不是只提问不回答，不要分成多轮对话。`
+            };
+
+            // 将系统instruction添加到消息列表的开头
+            const messagesWithSystem = [systemInstruction, ...messages];
+
             const response = await axios.post(this.apiUrl, {
-                model: "gpt-3.5-turbo",
-                messages: messages,
+                model: "deepseek-chat",
+                messages: messagesWithSystem,
                 temperature: 0.7,
                 max_tokens: 1000
             }, {
@@ -36,6 +59,13 @@ class StrategyAgent {
                 timeout: 30000 // 30秒超时
             });
 
+            // 打印AI响应到终端
+            const aiResponse = response.data.choices[0].message.content;
+            console.log('\n🤖 AI响应:');
+            console.log('═'.repeat(50));
+            console.log(aiResponse);
+            console.log('═'.repeat(50));
+            
             return response.data;
         } catch (error) {
             // 详细的错误信息
@@ -63,7 +93,7 @@ class StrategyAgent {
 当前板块内容：${currentSectionContent || '暂无'}`;
 
         const prompts = {
-            '用户痛点': `你是一个用户研究专家。帮助分析和识别目标用户的核心痛点。
+            '用户痛点': `你是一个用户研究专家。按照朋友之间的交流形式，帮助分析和识别目标用户的核心痛点。
 
 ${baseContext}
 
@@ -76,12 +106,13 @@ ${baseContext}
 
 回答要客观、具体、基于真实场景。
 
-**格式要求**：请使用markdown格式输出，包括：
-- 使用有序列表(1. 2. 3.)组织要点
-- 使用**加粗**标记重点内容
-- 段落之间留空行`,
+**格式要求**：请将回答分成多个独立的段落：
+- 每个要点用单独的段落表达
+- 段落之间用空行分隔
+- 每个段落聚焦一个核心要点
+- 直接输出文本内容，不需要特殊格式`,
 
-            '市场分析': `你是一个市场分析专家。帮助分析市场规模、趋势和机会。
+            '市场分析': `你是一个市场分析专家。通过对话的形式，帮助分析市场规模、趋势和机会。
 
 ${baseContext}
 
@@ -94,12 +125,13 @@ ${baseContext}
 
 提供数据支持和逻辑推理，保持客观分析。
 
-**格式要求**：请使用markdown格式输出，包括：
-- 使用有序列表(1. 2. 3.)组织要点
-- 使用**加粗**标记重点内容
-- 段落之间留空行`,
+**格式要求**：请将回答分成多个独立的段落：
+- 每个要点用单独的段落表达
+- 段落之间用空行分隔
+- 每个段落聚焦一个核心要点
+- 直接输出文本内容，不需要特殊格式`,
 
-            '产品介绍': `你是一个产品策略专家。帮助定义和完善产品方案。
+            '产品介绍': `你是一个产品策略专家。通过对话的形式，帮助定义和完善产品方案。
 
 ${baseContext}
 
@@ -112,12 +144,13 @@ ${baseContext}
 
 建议要具体可落地，关注用户价值。
 
-**格式要求**：请使用markdown格式输出，包括：
-- 使用有序列表(1. 2. 3.)组织要点
-- 使用**加粗**标记重点内容
-- 段落之间留空行`,
+**格式要求**：请将回答分成多个独立的段落：
+- 每个要点用单独的段落表达
+- 段落之间用空行分隔
+- 每个段落聚焦一个核心要点
+- 直接输出文本内容，不需要特殊格式`,
 
-            '竞争分析': `你是一个竞争战略专家。帮助分析竞争格局和差异化策略。
+            '竞争分析': `你是一个竞争战略专家。通过对话的形式，帮助分析竞争格局和差异化策略。
 
 ${baseContext}
 
@@ -130,12 +163,13 @@ ${baseContext}
 
 分析要客观全面，策略要可执行。
 
-**格式要求**：请使用markdown格式输出，包括：
-- 使用有序列表(1. 2. 3.)组织要点
-- 使用**加粗**标记重点内容
-- 段落之间留空行`,
+**格式要求**：请将回答分成多个独立的段落：
+- 每个要点用单独的段落表达
+- 段落之间用空行分隔
+- 每个段落聚焦一个核心要点
+- 直接输出文本内容，不需要特殊格式`,
 
-            '可行性分析': `你是一个商业可行性分析专家。帮助评估项目的实施可行性。
+            '可行性分析': `你是一个商业可行性分析专家。通过对话的形式，帮助评估项目的实施可行性。
 
 ${baseContext}
 
@@ -148,12 +182,13 @@ ${baseContext}
 
 评估要理性、全面，风险要充分暴露。
 
-**格式要求**：请使用markdown格式输出，包括：
-- 使用有序列表(1. 2. 3.)组织要点
-- 使用**加粗**标记重点内容
-- 段落之间留空行`,
+**格式要求**：请将回答分成多个独立的段落：
+- 每个要点用单独的段落表达
+- 段落之间用空行分隔
+- 每个段落聚焦一个核心要点
+- 直接输出文本内容，不需要特殊格式`,
 
-            '融资计划': `你是一个融资策略专家。帮助制定融资策略和投资人沟通方案。
+            '融资计划': `你是一个融资策略专家。通过对话的形式，帮助制定融资策略和投资人沟通方案。
 
 ${baseContext}
 
@@ -166,12 +201,13 @@ ${baseContext}
 
 建议要符合资本市场规律，务实可行。
 
-**格式要求**：请使用markdown格式输出，包括：
-- 使用有序列表(1. 2. 3.)组织要点
-- 使用**加粗**标记重点内容
-- 段落之间留空行`,
+**格式要求**：请将回答分成多个独立的段落：
+- 每个要点用单独的段落表达
+- 段落之间用空行分隔
+- 每个段落聚焦一个核心要点
+- 直接输出文本内容，不需要特殊格式`,
 
-            '团队介绍': `你是一个团队建设和组织发展专家。帮助构建和展示团队优势。
+            '团队介绍': `你是一个团队建设和组织发展专家。通过对话的形式，帮助构建和展示团队优势。
 
 ${baseContext}
 
@@ -186,11 +222,10 @@ ${baseContext}
 
 **格式要求**：请使用markdown格式输出，包括：
 - 使用有序列表(1. 2. 3.)组织要点
-- 使用**加粗**标记重点内容
-- 段落之间留空行`
+- 使用**加粗**标记重点内容`
         };
 
-        return prompts[section] || `你是一个商业计划顾问。针对"${section}"板块提供专业建议。
+        return prompts[section] || `你是一个商业计划顾问。针对"${section}"板块通过对话的形式，提供专业建议。
 
 ${baseContext}
 
@@ -215,161 +250,21 @@ ${baseContext}
         return await this.generateResponse(messages);
     }
 
-    async generateFollowUpQuestions(context = {}) {
-        const { ideaText, currentSection, currentSectionContent, chatHistory, userQuestion } = context;
-        
-        // 构建聊天历史文本
-        const chatHistoryText = chatHistory && chatHistory.length > 0
-            ? chatHistory.map(msg => `${msg.type === 'user' ? '用户' : 'AI'}：${msg.content}`).join('\n')
-            : '暂无对话历史';
-        
-        // 如果有用户问题，进行反思式回答
-        if (userQuestion) {
-            const systemPrompt = `你是一个商业计划反思专家。用户向你提出了一个问题，请结合对话历史和上下文，进行深入的反思性回答。
-
-当前想法：${ideaText || '未命名'}
-当前板块：${currentSection || '未知'}
-当前板块内容：${currentSectionContent || '暂无'}
-
-对话历史：
-${chatHistoryText}
-
-用户的问题：${userQuestion}
-
-要求：
-1. 深入分析用户的问题，提供有洞察力的回答
-2. 结合对话历史和当前内容，给出具体建议
-3. 指出可能存在的风险和机会
-4. 提供可执行的行动建议
-5. 使用markdown格式输出，包括有序列表和加粗重点`;
-
-            const messages = [
-                {
-                    role: "system",
-                    content: systemPrompt
-                },
-                {
-                    role: "user",
-                    content: userQuestion
-                }
-            ];
-
-            return await this.generateResponse(messages);
-        } else {
-            // 没有用户问题，生成推荐问题
-            const systemPrompt = `你是一个商业计划分析工具。根据对话历史和上下文，生成3个客观的后续提问，帮助深化思考。
-
-当前想法：${ideaText || '未命名'}
-当前板块：${currentSection || '未知'}
-当前板块内容：${currentSectionContent || '暂无'}
-
-对话历史：
-${chatHistoryText}
-
-要求：
-1. 基于已讨论内容，提出更深层次的问题
-2. 发现潜在盲点和未考虑的方面
-3. 问题要客观、直接、简洁
-4. 使用"可以...怎么样"、"如何..."、"是否..."等客观表达
-5. 不使用"您"、"我"等主观称呼，保持工具式的客观提问风格
-
-示例风格：
-- "可以从哪些渠道获取目标用户？"
-- "如何验证这个市场需求的真实性？"
-- "竞争对手的定价策略是什么？"
-
-请只返回3个问题，每行一个问题，不要编号、不要解释。`;
-
-            const messages = [
-                {
-                    role: "system",
-                    content: systemPrompt
-                },
-                {
-                    role: "user",
-                    content: "请生成推荐的后续问题"
-                }
-            ];
-
-            return await this.generateResponse(messages);
-        }
-    }
 
     async analyzeWritingChanges(context = {}) {
-        const { ideaText, previousWritings, currentWritings, currentSection } = context;
+        const { ideaText, previousIdeaText, previousWritings, currentWritings, currentSection } = context;
         
-        // 判断是新idea分析还是写作内容变化分析
-        const isNewIdeaAnalysis = currentSection === '新想法分析';
+        // 合并分析：既分析idea变化，也分析writing内容变化
+        const writingComparison = this.buildWritingComparison(previousWritings, currentWritings);
         
-        let systemPrompt;
-        
-        if (isNewIdeaAnalysis) {
-            // 新idea分析
-            systemPrompt = `你是一个商业计划分析专家。用户提出了一个新的商业想法，请按照Bloom认知分类分析这个想法可能受到什么因素影响而产生。
+        const systemPrompt = `你是一个认知分析专家。请根据分析用户的想法变化和写作内容变化的，简略分析用户为什么会改变想法，只写一段变化的原因，不用后续的引导思考的问题。
 
-新想法：${ideaText || '未命名'}
-
-请按照以下Bloom认知分类分析用户受到启发的点：
-
-**Knowledge（记忆与再现事实）**：用户是否基于已知的事实、数据、市场信息等产生想法
-**Comprehension（理解意义）**：用户是否理解了某个现象、趋势或问题的深层含义
-**Application（应用知识解决问题）**：用户是否将已有知识应用到解决具体问题中
-**Analysis（分析结构与关系）**：用户是否分析了市场结构、用户关系、竞争格局等
-**Synthesis（综合、创造新的结构）**：用户是否综合多个元素创造出新的商业模式或概念
-**Evaluation（评估与判断价值）**：用户是否评估了某个机会的价值或判断了某个方向的可行性
-
-要求：
-1. 分析这个想法可能受到的外部因素影响（市场趋势、用户需求、竞争环境、技术发展等）
-2. 分析用户可能的内在动机和思维模式（个人经历、价值观念、目标追求等）
-3. 识别可能影响这个想法的关键触发点
-4. 按照Bloom认知分类分析用户受到启发的具体认知层次
-5. 没有涉及的认知层次可以不写
-
-输出格式：
-- 关键触发点
-- Knowledge: [如果涉及]
-- Comprehension: [如果涉及]
-- Application: [如果涉及]
-- Analysis: [如果涉及]
-- Synthesis: [如果涉及]
-- Evaluation: [如果涉及]`;
-        } else {
-            // 写作内容变化分析
-            const writingComparison = this.buildWritingComparison(previousWritings, currentWritings);
-            
-            systemPrompt = `你是一个商业计划分析专家。用户更新了写作内容，请按照Bloom认知分类分析用户受到什么因素影响而改变idea。
-
-原始想法：${ideaText || '未命名'}
+前一个想法：${previousIdeaText || '未知'}
+当前板块想法：${ideaText || '未命名'}
 当前板块：${currentSection || '未知'}
 
-写作内容变化分析：
-${writingComparison}
-
-请按照以下Bloom认知分类分析用户受到启发的点：
-
-**Knowledge（记忆与再现事实）**：用户是否基于已知的事实、数据、市场信息等产生想法
-**Comprehension（理解意义）**：用户是否理解了某个现象、趋势或问题的深层含义
-**Application（应用知识解决问题）**：用户是否将已有知识应用到解决具体问题中
-**Analysis（分析结构与关系）**：用户是否分析了市场结构、用户关系、竞争格局等
-**Synthesis（综合、创造新的结构）**：用户是否综合多个元素创造出新的商业模式或概念
-**Evaluation（评估与判断价值）**：用户是否评估了某个机会的价值或判断了某个方向的可行性
-
-要求：
-1. 分析用户受到什么外部因素影响（市场趋势、用户需求、竞争环境、技术发展等）
-2. 分析用户内部思维变化（认知升级、价值观念转变、目标调整等）
-3. 识别影响用户决策的关键触发点
-4. 按照Bloom认知分类分析用户受到启发的具体认知层次
-5. 没有涉及的认知层次可以不写
-
-输出格式：
-- 关键触发点
-- Knowledge: [如果涉及]
-- Comprehension: [如果涉及]
-- Application: [如果涉及]
-- Analysis: [如果涉及]
-- Synthesis: [如果涉及]
-- Evaluation: [如果涉及]`;
-        }
+写作内容变化：
+${writingComparison}`;
 
         const messages = [
             {
@@ -378,7 +273,7 @@ ${writingComparison}
             },
             {
                 role: "user",
-                content: isNewIdeaAnalysis ? "请分析这个新想法的影响因素" : "请分析用户受到什么因素影响而改变idea"
+                content: "请分析用户的想法变化和影响因素"
             }
         ];
 
@@ -439,7 +334,11 @@ app.post('/api/strategy', async (req, res) => {
             });
         }
 
-        console.log('收到策略查询:', query);
+        console.log('\n💬 策略查询:');
+        console.log('─'.repeat(40));
+        console.log('问题:', query);
+        console.log('板块:', context.currentSection || '未知');
+        console.log('─'.repeat(40));
         
         const result = await strategyAgent.processStrategyQuery(query, context);
         
@@ -458,36 +357,18 @@ app.post('/api/strategy', async (req, res) => {
     }
 });
 
-// 反思推荐问题API
-app.post('/api/reflect', async (req, res) => {
-    try {
-        const { context } = req.body;
-        
-        console.log('收到推荐问题生成请求');
-        
-        const result = await strategyAgent.generateFollowUpQuestions(context);
-        
-        res.json({
-            status: 'success',
-            data: result,
-            timestamp: new Date().toISOString()
-        });
-        
-    } catch (error) {
-        console.error('推荐问题生成错误:', error);
-        res.status(500).json({
-            error: error.message || '服务器内部错误',
-            status: 'error'
-        });
-    }
-});
 
 // 写作内容分析API
 app.post('/api/analyze-writing', async (req, res) => {
     try {
         const { context } = req.body;
         
-        console.log('收到用户影响因素分析请求');
+        console.log('\n📝 写作分析:');
+        console.log('─'.repeat(40));
+        console.log('前想法:', context.previousIdeaText || '未知');
+        console.log('当前想法:', context.ideaText || '未命名');
+        console.log('板块:', context.currentSection || '未知');
+        console.log('─'.repeat(40));
         
         const result = await strategyAgent.analyzeWritingChanges(context);
         
@@ -539,7 +420,6 @@ app.listen(PORT, () => {
     console.log(`🔗 API 文档:`);
     console.log(`   GET  / - 服务状态`);
     console.log(`   POST /api/strategy - 策略咨询`);
-    console.log(`   POST /api/reflect - 生成推荐问题`);
     console.log(`   POST /api/analyze-writing - 用户影响因素分析`);
     console.log(`   GET  /api/health - 健康检查`);
     console.log(`⏰ 启动时间: ${new Date().toLocaleString('zh-CN')}`);
