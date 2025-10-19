@@ -7,12 +7,8 @@
   box-sizing: border-box;
 }
 
+/* 继承 index.css 的字体配置，这里只设置背景色 */
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
   background-color: #f5f7fa;
 }
 
@@ -90,10 +86,10 @@ body {
   min-width: 0;
 }
 
-/* 右侧聊天区域 */
+/* 右侧聊天区域 - 加宽 */
 .chat-section {
-  flex: 0 0 400px;
-  max-width: 400px;
+  flex: 0 0 500px; /* 从400px增加到500px */
+  max-width: 500px; /* 从400px增加到500px */
   display: flex;
   flex-direction: column;
   background: rgba(255, 255, 255, 0.95);
@@ -718,7 +714,7 @@ body {
 
 /* 写作框架 */
 .writing-framework {
-  width: 140px;
+  width: 200px; /* 进一步增加到200px，确保Mac上文字完整显示 */
   padding: 0.75rem;
   background: rgba(102, 126, 234, 0.05);
   border-radius: 8px;
@@ -726,6 +722,7 @@ body {
   overflow-y: visible;
   display: flex;
   flex-direction: column;
+  min-height: 400px; /* 确保有足够高度显示所有7个项目 */
 }
 
 .writing-framework h4 {
@@ -737,13 +734,16 @@ body {
 }
 
 .framework-section {
-  margin-bottom: 0.3rem;
-  padding: 0.4rem 0.6rem;
+  margin-bottom: 0.3rem; /* 稍微减少间距以节省空间 */
+  padding: 0.4rem 0.6rem; /* 调整内边距 */
   background: white;
   border-radius: 6px;
   border-left: 3px solid #e2e8f0;
   cursor: pointer;
   transition: all 0.2s;
+  min-height: 32px; /* 减少最小高度 */
+  display: flex;
+  align-items: center;
 }
 
 .framework-section:hover {
@@ -764,13 +764,19 @@ body {
 }
 
 .framework-section label {
-  font-size: 0.8rem;
+  font-size: 0.8rem; /* Mac上使用稍小的字体 */
   font-weight: 500;
   color: #4a5568;
   display: block;
   cursor: pointer;
   user-select: none;
-  line-height: 1.3;
+  line-height: 1.3; /* Mac上使用更紧凑的行高 */
+  width: 100%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  /* Mac字体渲染优化 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* 写作编辑器 */
@@ -852,10 +858,32 @@ body {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 1rem;
+  padding: 0.8rem; /* 增加内边距，提升整体空间感 */
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.8rem; /* 增加消息间距，提升视觉层次 */
+  min-height: 0; /* 重要：允许flex容器正确收缩 */
+  max-height: calc(100vh - 200px); /* 减少限制，给GPT回复更多空间 */
+}
+
+/* 优化滚动条样式 */
+.chat-messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 3px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background: rgba(102, 126, 234, 0.3);
+  border-radius: 3px;
+  transition: background 0.2s;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+  background: rgba(102, 126, 234, 0.5);
 }
 
 .empty-chat {
@@ -927,18 +955,15 @@ body {
   align-self: flex-end;
 }
 
-.message.ai {
-  align-self: flex-start;
-}
 
 .message.reflection {
   align-self: stretch;
   max-width: 100%;
-  margin: 1rem 0;
+  margin: 0.75rem 0; /* 从1rem 0减少到0.75rem 0 */
   border-left: 4px solid #8b5cf6;
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.05) 0%, rgba(167, 139, 250, 0.05) 100%);
   border-radius: 12px;
-  padding: 0.5rem;
+  padding: 0.4rem; /* 从0.5rem减少到0.4rem */
   box-shadow: 0 4px 12px rgba(139, 92, 246, 0.1);
 }
 
@@ -946,9 +971,118 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.3rem;
-  font-size: 0.8rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  color: #6b7280;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem 0 1.5rem;
 }
+
+/* GPT消息头部与用户消息保持一致 - 显示在消息框外面 */
+
+.message.ai .message-header {
+  margin-bottom: 0.1rem;
+  font-size: 0.8rem;
+  color: #718096;
+  font-weight: 500;
+  padding: 0;
+}
+
+.message.ai .message-sender {
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.message.ai .message-time {
+  font-size: 0.8rem;
+  color: #718096;
+}
+
+/* 移除GPT回复的特殊视觉元素 */
+
+/* 为GPT回复添加打字机效果 */
+.message.ai.typing .message-content {
+  overflow: hidden;
+  animation: typewriter 0.5s ease-in-out;
+}
+
+@keyframes typewriter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 简化GPT回复的动画效果 */
+.message.ai {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 响应式设计优化 */
+@media (max-width: 768px) {
+  .message.ai .message-content {
+    padding: 0.3rem 0.5rem !important;
+    font-size: 14px !important;
+  }
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .message.ai {
+    background: #374151;
+    color: #f9fafb;
+  }
+  
+  .message.ai .message-content {
+    color: #f3f4f6 !important;
+  }
+  
+  .message.ai .message-sender {
+    color: #e5e7eb;
+  }
+  
+  .message.ai .message-time {
+    color: #9ca3af;
+  }
+}
+
+/* 可访问性优化 */
+.message.ai:focus-within {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* 打印样式优化 */
+@media print {
+  .message.ai {
+    background: white !important;
+    border: 1px solid #ccc !important;
+    animation: none !important;
+  }
+  
+  .message.ai .message-sender {
+    color: #333 !important;
+  }
+  
+  .message.ai .message-time {
+    color: #666 !important;
+  }
+}
+
+/* 移除AI角标，因为头部已经有了更突出的设计 */
 
 .message-sender {
   font-weight: 600;
@@ -970,11 +1104,38 @@ body {
   color: #a78bfa;
 }
 
+.message.analysis .message-time {
+  color: #10b981;
+}
+
+/* 分析消息特殊样式 */
+.message.analysis {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  border: 1px solid #10b981;
+  border-radius: 12px;
+}
+
+.message.analysis .message-header {
+  background: rgba(16, 185, 129, 0.1);
+  border-radius: 8px 8px 0 0;
+}
+
+.message.analysis .message-sender {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.message.analysis .message-content {
+  background: transparent;
+  color: #065f46;
+  font-weight: 500;
+}
+
 .message-content {
-  padding: 1rem 1.25rem;
+  padding: 0.4rem 0.6rem; /* 从0.6rem 0.8rem进一步减少到0.4rem 0.6rem */
   border-radius: 12px;
   font-size: 0.9rem;
-  line-height: 1.7;
+  line-height: 1.4; /* 从1.5进一步减少到1.4 */
   word-wrap: break-word;
   white-space: pre-wrap;
 }
@@ -985,13 +1146,168 @@ body {
   border-bottom-right-radius: 4px;
 }
 
-.message.ai .message-content {
-  background: #ffffff;
-  color: #2d3748;
-  border: 1px solid #e2e8f0;
-  border-bottom-left-radius: 4px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+
+/* GPT消息样式 - 与用户消息保持一致的布局 */
+.message.ai {
+  background: white;
+  border-radius: 12px;
+  padding: 0.4rem;
+  margin: 0.75rem 0;
+  position: relative;
+  overflow: visible; /* 改为visible，允许内容完整显示 */
+  max-height: none !important; /* 移除高度限制 */
+  min-height: auto !important; /* 允许自然高度 */
 }
+
+/* 移除GPT消息的顶部装饰条 */
+
+.message.ai .message-content {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif !important;
+  font-size: 15px !important;
+  line-height: 1.7 !important;
+  color: #1f2937 !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0.6rem 0.8rem !important;
+  margin: 0 !important;
+  white-space: pre-wrap !important;
+  position: relative;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: visible !important; /* 确保内容不被截断 */
+  max-height: none !important; /* 移除高度限制 */
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+}
+
+
+
+
+
+
+
+
+
+
+/* GPT回复内容的特殊样式 */
+.message.ai .message-content {
+  /* 段落间距 */
+  p {
+    margin: 1rem 0;
+    line-height: 1.8;
+    padding: 0.8rem 1rem;
+    background: rgba(248, 250, 252, 0.6);
+    border-radius: 8px;
+    border-left: 3px solid rgba(102, 126, 234, 0.2);
+    position: relative;
+  }
+  
+  /* 第一个段落特殊样式 */
+  p:first-child {
+    margin-top: 0.5rem;
+  }
+  
+  /* 最后一个段落特殊样式 */
+  p:last-child {
+    margin-bottom: 0.5rem;
+  }
+  
+  /* 段落之间的分隔效果 */
+  p + p {
+    margin-top: 1.2rem;
+  }
+  
+  /* 标题样式 */
+  strong, b {
+    color: #1e40af;
+    font-weight: 700;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(139, 92, 246, 0.08) 100%);
+    padding: 0.3rem 0.5rem;
+    border-radius: 6px;
+    border-left: 3px solid #3b82f6;
+    display: inline-block;
+    margin: 0.2rem 0;
+  }
+  
+  /* 特殊高亮文本 */
+  .highlight {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: #92400e;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-weight: 600;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+  }
+  
+  /* 重要信息样式 */
+  .important {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    color: #dc2626;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    font-weight: 600;
+    border-left: 3px solid #ef4444;
+    display: inline-block;
+    margin: 0.3rem 0;
+  }
+  
+  /* 列表样式 */
+  ul, ol {
+    margin: 0.75rem 0;
+    padding-left: 1.5rem;
+  }
+  
+  li {
+    margin: 0.4rem 0;
+    line-height: 1.6;
+    position: relative;
+  }
+  
+  /* 无序列表特殊样式 */
+  ul li::marker {
+    content: "✨ ";
+    color: #3b82f6;
+  }
+  
+  /* 有序列表特殊样式 */
+  ol li::marker {
+    color: #8b5cf6;
+    font-weight: 700;
+  }
+  
+  /* 代码样式 */
+  code {
+    background: rgba(59, 130, 246, 0.1);
+    color: #1e40af;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+    font-size: 0.9em;
+  }
+  
+  /* 引用样式 */
+  blockquote {
+    border-left: 4px solid #3b82f6;
+    background: rgba(59, 130, 246, 0.05);
+    padding: 1rem 1.5rem;
+    margin: 1rem 0;
+    border-radius: 0 8px 8px 0;
+    font-style: italic;
+    color: #4b5563;
+  }
+}
+
+.message.ai .message-content hr {
+  margin: 1.5rem 0 !important;
+  border: none !important;
+  height: 2px !important;
+  background: linear-gradient(90deg, transparent 0%, #3b82f6 50%, transparent 100%) !important;
+  border-radius: 1px !important;
+}
+
+
+
 
 .message.reflection .message-content {
   background: rgba(255, 255, 255, 0.95);
@@ -1000,103 +1316,29 @@ body {
   padding: 1.5rem;
 }
 
-/* Markdown 内容样式 */
-.markdown-content {
-  line-height: 1.7;
+/* 消息内容基本样式 */
+.message-content {
+  padding: 0.4rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  word-wrap: break-word;
+  white-space: pre-wrap;
 }
 
-.markdown-content p {
-  margin: 0.75rem 0;
-  color: #2d3748;
-  line-height: 1.7;
-}
 
-.markdown-content p:first-child {
-  margin-top: 0;
-}
 
-.markdown-content p:last-child {
-  margin-bottom: 0;
-}
 
-.markdown-content h1,
-.markdown-content h2,
-.markdown-content h3 {
-  color: #667eea;
-  font-weight: 700;
-  margin: 1rem 0 0.75rem 0;
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid rgba(102, 126, 234, 0.2);
-}
 
-.markdown-content h1 {
-  font-size: 1.2rem;
-}
 
-.markdown-content h2 {
-  font-size: 1.1rem;
-}
 
-.markdown-content h3 {
-  font-size: 1rem;
-}
 
-.markdown-content strong {
-  color: #667eea;
-  font-weight: 600;
-}
 
-.markdown-content em {
-  color: #718096;
-  font-style: italic;
-}
 
-.markdown-content ul,
-.markdown-content ol {
-  margin: 0.75rem 0;
-  padding-left: 1.5rem;
-}
 
-.markdown-content li {
-  margin: 0.5rem 0;
-  padding-left: 0.5rem;
-  color: #2d3748;
-  line-height: 1.6;
-}
 
-.markdown-content code {
-  background: #f7fafc;
-  padding: 0.2rem 0.4rem;
-  border-radius: 3px;
-  font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 0.85rem;
-  color: #e53e3e;
-  border: 1px solid #e2e8f0;
-}
 
-.markdown-content pre {
-  background: #2d3748;
-  color: #f7fafc;
-  padding: 1rem;
-  border-radius: 8px;
-  overflow-x: auto;
-  margin: 0.75rem 0;
-}
 
-.markdown-content pre code {
-  background: transparent;
-  color: inherit;
-  padding: 0;
-  border: none;
-}
-
-.markdown-content blockquote {
-  border-left: 4px solid #667eea;
-  padding-left: 1rem;
-  margin: 0.75rem 0;
-  color: #718096;
-  font-style: italic;
-}
 
 /* 推荐问题区域 */
 .recommended-questions {
@@ -1214,18 +1456,20 @@ body {
 
 /* Chat 输入区域 */
 .chat-input-group {
-  padding: 1rem;
+  padding: 0.5rem; /* 从0.75rem进一步减少到0.5rem */
   border-top: 1px solid rgba(0, 0, 0, 0.1);
   background: rgba(255, 255, 255, 0.8);
   display: flex;
-  gap: 0.75rem;
+  gap: 0.4rem; /* 从0.5rem进一步减少到0.4rem */
   align-items: flex-end;
   flex-shrink: 0;
+  min-height: 80px; /* 设置最小高度 */
+  max-height: 120px; /* 设置最大高度，防止输入框过大 */
 }
 
 .chat-input {
   flex: 1;
-  padding: 0.75rem;
+  padding: 0.4rem; /* 从0.6rem进一步减少到0.4rem */
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   font-family: inherit;
@@ -1234,7 +1478,28 @@ body {
   resize: none;
   outline: none;
   transition: border-color 0.2s;
-  line-height: 1.5;
+  line-height: 1.4;
+  min-height: 60px; /* 设置最小高度 */
+  max-height: 100px; /* 设置最大高度，超出时滚动 */
+  overflow-y: auto; /* 内容超出时显示滚动条 */
+}
+
+/* 聊天输入框滚动条样式 */
+.chat-input::-webkit-scrollbar {
+  width: 4px;
+}
+
+.chat-input::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-input::-webkit-scrollbar-thumb {
+  background: rgba(102, 126, 234, 0.3);
+  border-radius: 2px;
+}
+
+.chat-input::-webkit-scrollbar-thumb:hover {
+  background: rgba(102, 126, 234, 0.5);
 }
 
 .chat-input:focus {
@@ -1344,6 +1609,7 @@ body {
   width: auto !important;
 }
 
+
 /* 全屏模式下的认知分析区域 */
 .fullscreen-mode .idea-analysis {
   margin-top: 0.5rem;
@@ -1373,8 +1639,8 @@ body {
    ======================================== */
 @media (max-width: 1200px) {
   .chat-section {
-    flex: 0 0 350px;
-    max-width: 350px;
+    flex: 0 0 450px; /* 从350px增加到450px */
+    max-width: 450px; /* 从350px增加到450px */
   }
 }
 
@@ -1384,9 +1650,9 @@ body {
   }
   
   .chat-section {
-    flex: 0 0 300px;
+    flex: 0 0 400px; /* 从300px增加到400px */
     max-width: 100%;
-    height: 300px;
+    height: 400px; /* 从300px增加到400px */
   }
   
   .left-panel {
@@ -1419,7 +1685,7 @@ body {
   }
   
   .writing-framework {
-    width: 100px;
+    width: 160px; /* 从100px增加到160px，确保文字完整显示 */
   }
 }
 
@@ -1468,6 +1734,185 @@ body {
   overflow-wrap: break-word !important;
   word-wrap: break-word !important;
   white-space: normal !important;
+}
+
+/* ========================================
+   Mac 特定优化
+   ======================================== */
+
+/* Mac Retina 屏优化 */
+@media screen and (-webkit-min-device-pixel-ratio: 2) {
+  .writing-framework {
+    width: 220px !important; /* Retina屏上进一步增加宽度 */
+    min-height: 420px !important; /* 增加高度 */
+  }
+  
+  .framework-section {
+    margin-bottom: 0.25rem !important; /* 更紧凑的间距 */
+    min-height: 30px !important;
+  }
+  
+  .framework-section label {
+    font-size: 0.75rem !important; /* Retina屏上使用更小字体 */
+    line-height: 1.2 !important;
+  }
+}
+
+/* Mac Safari 特定优化 */
+@supports (-webkit-appearance: none) {
+  .writing-framework {
+    /* Safari 字体渲染优化 */
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  }
+  
+  .framework-section label {
+    /* Safari 文字渲染优化 */
+    -webkit-font-smoothing: antialiased !important;
+    text-rendering: optimizeLegibility !important;
+  }
+}
+
+/* 强制显示所有框架项目 */
+.writing-framework {
+  overflow-y: visible !important;
+  max-height: none !important;
+}
+
+/* ========================================
+   Chrome 和 Safari 浏览器特定优化
+   ======================================== */
+
+/* Chrome 特定优化 */
+@supports (-webkit-appearance: none) and (not (-webkit-appearance: none)) {
+  /* Chrome 但不是 Safari */
+  .writing-framework {
+    width: 200px !important;
+    min-height: 380px !important;
+  }
+  
+  .framework-section {
+    margin-bottom: 0.35rem !important;
+    min-height: 34px !important;
+  }
+  
+  .framework-section label {
+    font-size: 0.82rem !important;
+    line-height: 1.35 !important;
+    /* Chrome 字体渲染优化 */
+    -webkit-font-smoothing: subpixel-antialiased !important;
+  }
+}
+
+/* Safari 特定优化 */
+@supports (-webkit-appearance: none) {
+  /* Safari 浏览器 */
+  .writing-framework {
+    width: 200px !important;
+    min-height: 400px !important;
+  }
+  
+  .framework-section {
+    margin-bottom: 0.3rem !important;
+    min-height: 32px !important;
+  }
+  
+  .framework-section label {
+    font-size: 0.8rem !important;
+    line-height: 1.3 !important;
+    /* Safari 字体渲染优化 */
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+    text-rendering: optimizeLegibility !important;
+  }
+}
+
+/* WebKit 引擎统一优化 */
+@supports (-webkit-appearance: none) {
+  .writing-framework {
+    /* WebKit 布局优化 */
+    display: -webkit-flex !important;
+    display: flex !important;
+    -webkit-flex-direction: column !important;
+    flex-direction: column !important;
+    -webkit-align-items: stretch !important;
+    align-items: stretch !important;
+  }
+  
+  .framework-section {
+    /* WebKit 弹性布局优化 */
+    display: -webkit-flex !important;
+    display: flex !important;
+    -webkit-align-items: center !important;
+    align-items: center !important;
+    -webkit-justify-content: flex-start !important;
+    justify-content: flex-start !important;
+  }
+}
+
+/* 跨浏览器字体统一 */
+.writing-framework {
+  font-family: 
+    /* Chrome 优先 */
+    'Segoe UI', 'Roboto',
+    /* Safari 优先 */
+    -apple-system, BlinkMacSystemFont,
+    /* 通用备选 */
+    'Helvetica Neue', 'Arial', sans-serif !important;
+}
+
+/* 强制布局一致性 */
+.writing-framework,
+.framework-section,
+.framework-section label {
+  /* 重置所有可能影响布局的属性 */
+  box-sizing: border-box !important;
+  /* margin: 0 !important; */
+  /* padding: 0 !important; */
+  border: 0 !important;
+  font-size: 100% !important;
+  font: inherit !important;
+  vertical-align: baseline !important;
+}
+
+/* 重新应用样式 */
+.writing-framework {
+  width: 200px !important;
+  padding: 0.75rem !important;
+  background: rgba(102, 126, 234, 0.05) !important;
+  border-radius: 8px !important;
+  flex-shrink: 0 !important;
+  overflow-y: visible !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 400px !important;
+}
+
+.framework-section {
+  margin-bottom: 0.3rem !important;
+  padding: 0.4rem 0.6rem !important;
+  background: white !important;
+  border-radius: 6px !important;
+  border-left: 3px solid #e2e8f0 !important;
+  cursor: pointer !important;
+  transition: all 0.2s !important;
+  min-height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.framework-section label {
+  font-size: 0.8rem !important;
+  font-weight: 500 !important;
+  color: #4a5568 !important;
+  display: block !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  line-height: 1.3 !important;
+  width: 100% !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
 }
 
 /* 覆盖响应式设计中的宽度设置 */
