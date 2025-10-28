@@ -1,7 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './App.css';
+import Login from './Login';
+import TaskA from './TaskA';
+import AdminPanel from './AdminPanel';
 
 function App() {
+  // 登录状态管理
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userInfo, setUserInfo] = useState(null);
+  
   // 状态管理
   const [ideas, setIdeas] = useState([]);
   const [currentIdea, setCurrentIdea] = useState('');
@@ -36,6 +43,28 @@ function App() {
   // 引用
   const canvasRef = useRef(null);
   const chatEndRef = useRef(null);
+
+  // 登录处理函数
+  const handleLogin = (loginData) => {
+    setUserInfo(loginData);
+    setIsLoggedIn(true);
+  };
+
+  // 登出处理函数
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUserInfo(null);
+    // 清空所有数据
+    setIdeas([]);
+    setCurrentIdea('');
+    setSelectedIdeaId(null);
+    setIdeaWritings({});
+    setIdeaChats({});
+    setChatInput('');
+    setSelectedFrameworkId(1);
+    setEditingIdeaId(null);
+    setEditingText('');
+  };
 
   // 写作框架模板
   const writingFramework = [
@@ -249,7 +278,7 @@ function App() {
     setIsAnalyzingWriting(true);
     
     try {
-      const response = await fetch('http://localhost:5000/api/analyze-writing', {
+      const response = await fetch('http://localhost:5050/api/analyze-writing', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -681,12 +710,15 @@ function App() {
     
     setChatInput('');
     setIsLoading(true);
+    
+    // 保存用户消息到数据库
+    saveChatToDatabase(userMessage, selectedIdeaId, selectedFrameworkId);
 
     try {
       const selectedIdea = ideas.find(i => i.id === selectedIdeaId);
       const currentFramework = writingFramework.find(f => f.id === selectedFrameworkId);
       
-      const response = await fetch('http://localhost:5000/api/strategy', {
+      const response = await fetch('http://localhost:5050/api/strategy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -721,6 +753,9 @@ function App() {
             [selectedFrameworkId]: updatedMessages
           }
         });
+        
+        // 保存AI回复到数据库
+        saveChatToDatabase(aiMessage, selectedIdeaId, selectedFrameworkId);
       } else {
         throw new Error(data.error || '请求失败');
       }
@@ -745,89 +780,51 @@ function App() {
     }
   };
 
-  // 导出所有聊天记录
-  const exportChatHistory = () => {
-    // 收集所有聊天记录
-    const allMessages = [];
-    
-    // 遍历所有idea和板块的聊天记录
-    Object.keys(ideaChats).forEach(ideaId => {
-      const idea = ideas.find(i => i.id === parseInt(ideaId));
-      const ideaName = idea?.text || '未命名想法';
+  // 保存聊天记录到数据库
+  const saveChatToDatabase = async (message, ideaId, frameworkId) => {
+    try {
+      const idea = ideas.find(i => i.id === ideaId);
+      const framework = writingFramework.find(f => f.id === frameworkId);
       
-      Object.keys(ideaChats[ideaId]).forEach(frameworkId => {
-        const framework = writingFramework.find(f => f.id === parseInt(frameworkId));
-        const frameworkName = framework?.title || '未知板块';
-        const messages = ideaChats[ideaId][frameworkId] || [];
-        
-        // 为每条消息添加上下文信息
-        messages.forEach(message => {
-          allMessages.push({
-            ...message,
-            ideaId: parseInt(ideaId),
-            ideaName,
-            frameworkId: parseInt(frameworkId),
-            frameworkName
-          });
-        });
+      console.log('保存聊天记录到数据库:', {
+        user_id: userInfo.username,
+        task_type: 'taskB',
+        idea_id: ideaId,
+        idea_name: idea?.text || '未命名想法',
+        section_id: frameworkId,
+        section_name: framework?.title || '未知板块',
+        message_type: message.type,
+        content: message.content.substring(0, 50) + '...',
+        timestamp: message.timestamp
       });
-    });
-    
-    if (allMessages.length === 0) {
-      alert('当前没有聊天记录可以导出');
-      return;
+      
+      const response = await fetch('http://localhost:5050/api/save-chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: userInfo.username,
+          task_type: 'taskB',
+          idea_id: ideaId,
+          idea_name: idea?.text || '未命名想法',
+          section_id: frameworkId,
+          section_name: framework?.title || '未知板块',
+          message_type: message.type,
+          content: message.content,
+          timestamp: message.timestamp
+        }),
+      });
+      
+      const result = await response.json();
+      if (result.status === 'success') {
+        console.log('✅ 聊天记录保存成功:', result);
+      } else {
+        console.error('❌ 聊天记录保存失败:', result);
+      }
+    } catch (error) {
+      console.error('保存聊天记录失败:', error);
     }
-    
-    // 按时间戳排序
-    allMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-    
-    // 构建导出内容
-    let exportContent = `所有聊天记录导出\n`;
-    exportContent += `导出时间: ${new Date().toLocaleString('zh-CN')}\n`;
-    exportContent += `总记录数: ${allMessages.length}\n`;
-    exportContent += `\n${'='.repeat(60)}\n\n`;
-    
-    // 按想法和板块分组显示
-    const groupedMessages = {};
-    allMessages.forEach(message => {
-      const key = `${message.ideaName}_${message.frameworkName}`;
-      if (!groupedMessages[key]) {
-        groupedMessages[key] = {
-          ideaName: message.ideaName,
-          frameworkName: message.frameworkName,
-          messages: []
-        };
-      }
-      groupedMessages[key].messages.push(message);
-    });
-    
-    // 添加分组后的聊天记录
-    Object.values(groupedMessages).forEach((group, groupIndex) => {
-      exportContent += `\n【${group.ideaName} - ${group.frameworkName}】\n`;
-      exportContent += `${'─'.repeat(40)}\n`;
-      
-      group.messages.forEach((message, index) => {
-        const timestamp = message.timestamp.toLocaleString('zh-CN');
-        const sender = message.type === 'user' ? '用户' : 'GPT';
-        exportContent += `${index + 1}. [${timestamp}] ${sender}:\n`;
-        exportContent += `${message.content}\n\n`;
-      });
-      
-      if (groupIndex < Object.values(groupedMessages).length - 1) {
-        exportContent += `\n${'='.repeat(60)}\n`;
-      }
-    });
-    
-    // 创建下载链接
-    const blob = new Blob([exportContent], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `所有聊天记录_${new Date().toISOString().split('T')[0]}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
   };
 
 
@@ -845,14 +842,45 @@ function App() {
     }
   };
 
+  // 如果未登录，显示登录页面
+  if (!isLoggedIn) {
+    return <Login onLogin={handleLogin} />;
+  }
+
+  // 如果用户是管理员，显示管理员后台
+  if (userInfo.role === 'admin') {
+    return <AdminPanel userInfo={userInfo} onLogout={handleLogout} />;
+  }
+
+  // 如果用户选择Task A，显示Task A界面
+  if (userInfo.task === 'taskA') {
+    return <TaskA userInfo={userInfo} onLogout={handleLogout} />;
+  }
+
+  // 如果用户选择Task B，显示元反思工作台（原有界面）
   return (
     <div className={`app ${isFullscreen ? 'fullscreen-mode' : ''}`}>
       {/* 简化的全屏模式 - 只隐藏侧边栏，保留画布 */}
       <div className="app-header">
             <h1>商业计划书写作-元反思工作台</h1>
-            <div className="status-indicator">
-              <span className="status-dot"></span>
-              服务运行中
+            <div className="header-right">
+              <div className="user-info">
+                <span className="user-name">
+                  {userInfo.role === 'admin' ? '管理员' : `用户 ${userInfo.username}`}
+                </span>
+                {userInfo.role === 'user' && (
+                  <span className="user-task">
+                    {userInfo.task === 'taskA' ? 'Task A' : 'Task B'}
+                  </span>
+                )}
+              </div>
+              <button className="logout-btn" onClick={handleLogout}>
+                退出登录
+              </button>
+              <div className="status-indicator">
+                <span className="status-dot"></span>
+                服务运行中
+              </div>
             </div>
           </div>
           
@@ -1159,7 +1187,6 @@ function App() {
                   {writingFramework.find(f => f.id === selectedFrameworkId)?.title}
                 </span>
               )}
-              <button className="tool-btn" onClick={exportChatHistory}>导出聊天记录</button>
             </div>
           </div>
           

@@ -1,18 +1,52 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const { MongoClient } = require('mongodb');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5050;
+
+// MongoDB连接配置
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
+const DB_NAME = 'bptutor';
+let db;
+let chatRecordsCollection;
+let userStatsCollection;
+
+// 初始化MongoDB连接
+async function initDatabase() {
+    try {
+        const client = new MongoClient(MONGODB_URI);
+        await client.connect();
+        console.log('✅ MongoDB连接成功');
+        
+        db = client.db(DB_NAME);
+        chatRecordsCollection = db.collection('chat_records');
+        userStatsCollection = db.collection('user_stats');
+        
+        // 创建索引
+        await chatRecordsCollection.createIndex({ user_id: 1, timestamp: -1 });
+        await chatRecordsCollection.createIndex({ task_type: 1 });
+        await userStatsCollection.createIndex({ user_id: 1 }, { unique: true });
+        
+        console.log('✅ 数据库集合和索引创建成功');
+    } catch (error) {
+        console.error('❌ MongoDB连接失败:', error.message);
+        process.exit(1);
+    }
+}
+
+// 启动时初始化数据库
+initDatabase();
 
 // 中间件
 app.use(cors());
 app.use(express.json());
 
 // GPT API 配置
-const GPT_API_URL = "https://tbnx.plus7.plus/v1/chat/completions";
-const GPT_API_KEY = "sk-Jc6pIOYsdGyPfrFXKQX4WnTISwUmKUKtaofbS3LnExgkPwT7";
+const GPT_API_URL = "https://www.chataiapi.com/v1";
+const GPT_API_KEY = "sk-S5csXKfMoFyqMo9rSwQs0pMhkZp3JsBlIissNSREmhEo0L3j";
 
 // 策略代理实现
 class StrategyAgent {
@@ -26,37 +60,38 @@ class StrategyAgent {
             // 系统级instruction - 创业反思教练
             const systemInstruction = {
                 role: "system",
-                content: `你是一位"创业反思教练"，负责为用户提供全面、深入的分析和建议时，既回答问题又引导用户思考。
+                content: `你是一位"创业反思教练"，负责通过多轮对话帮助用户深入思考创业问题。
 
 你的核心职责：
-1. 首先回答用户的具体问题，提供专业建议和分析
-2. 在回答的基础上，适当提出1-2个开放式问题引导用户深入思考
-3. 帮助用户经历从记忆 → 理解 → 应用 → 分析 → 评价 → 创造的思维过程
-4. 在单次回答中包含所有相关信息，避免分多轮回答
-
+1. 每次回答要简洁、聚焦，控制在200-300字左右
+2. 先给出当前问题的核心答案或建议
+3. 每次回答后提出1个开放式问题，引导用户继续思考
+4. 通过多轮对话逐步深入，帮助用户从表面思考到深层反思
+5. 避免一次性输出过多信息
 
 回答风格：
-- 先给出专业、具体的答案和建议，提供数据支撑和逻辑推理
-- 然后根据用户的思考阶段，选择合适层级提出引导性问题，如"你觉得这个方案如何？""还有什么其他考虑吗？"
-- 语气温和、鼓励、探究，帮助用户觉察自己的思维方式和决策依据
+- 简洁有力，直接回答用户的问题
+- 每次只讨论1-2个核心点，不要列太多要点
+- 用温和、鼓励的语气进行引导
+- 每个回答的结尾必须包含一个引导性问题
 
-记住：要先回答问题，再引导思考，而不是只提问不回答，不要分成多轮对话。`
+记住：保持对话的节奏感，让用户有时间消化每次的回答。分多轮进行，不要一次说完所有内容。`
             };
 
             // 将系统instruction添加到消息列表的开头
             const messagesWithSystem = [systemInstruction, ...messages];
 
-            const response = await axios.post(this.apiUrl, {
-                model: "deepseek-chat",
+            const response = await axios.post(`${this.apiUrl}/chat/completions`, {
+                model: "deepseek-chat", // 使用普通模型，响应更快。如需推理模式，使用 "deepseek-r1"
                 messages: messagesWithSystem,
                 temperature: 0.7,
-                max_tokens: 1000
+                max_tokens: 400
             }, {
                 headers: {
                     'Authorization': `Bearer ${this.apiKey}`,
                     'Content-Type': 'application/json'
                 },
-                timeout: 30000 // 30秒超时
+                timeout: 60000 // 60秒超时（deepseek-r1模型需要更长时间）
             });
 
             // 打印AI响应到终端
@@ -257,14 +292,7 @@ ${baseContext}
         // 合并分析：既分析idea变化，也分析writing内容变化
         const writingComparison = this.buildWritingComparison(previousWritings, currentWritings);
         
-        const systemPrompt = `你是一个认知分析专家。请根据分析用户的想法变化和写作内容变化的，简略分析用户为什么会改变想法，只写一段变化的原因，不用后续的引导思考的问题。
-
-前一个想法：${previousIdeaText || '未知'}
-当前板块想法：${ideaText || '未命名'}
-当前板块：${currentSection || '未知'}
-
-写作内容变化：
-${writingComparison}`;
+        const systemPrompt = `你是一个认知分析专家。分析用户的想法变化，用简洁自然的语言说明变化原因，不要使用固定的格式或结构。每次分析都采用不同的表达方式。`;
 
         const messages = [
             {
@@ -273,7 +301,16 @@ ${writingComparison}`;
             },
             {
                 role: "user",
-                content: "请分析用户的想法变化和影响因素"
+                content: `用户修改了想法内容：
+
+前一个想法：${previousIdeaText || '未知'}
+新想法：${ideaText || '未命名'}
+板块：${currentSection || '未知'}
+
+同时写作内容也有变化：
+${writingComparison}
+
+请分析为什么会发生这些变化？`
             }
         ];
 
@@ -386,6 +423,184 @@ app.post('/api/analyze-writing', async (req, res) => {
         });
     }
 });
+
+// 保存聊天记录API
+app.post('/api/save-chat', async (req, res) => {
+    try {
+        const { user_id, task_type, idea_id, idea_name, section_id, section_name, message_type, content, timestamp } = req.body;
+        
+        const chatRecord = {
+            user_id,
+            task_type,
+            idea_id: idea_id || null,
+            idea_name: idea_name || null,
+            section_id: section_id || null,
+            section_name: section_name || null,
+            message_type,
+            content,
+            timestamp: new Date(timestamp),
+            created_at: new Date()
+        };
+        
+        const result = await chatRecordsCollection.insertOne(chatRecord);
+        
+        console.log(`✅ 聊天记录已保存: 用户${user_id} - ${message_type}消息`);
+        
+        // 更新用户统计
+        await updateUserStats(user_id, task_type);
+        
+        res.json({ 
+            status: 'success', 
+            message: '聊天记录已保存',
+            id: result.insertedId 
+        });
+        
+    } catch (error) {
+        console.error('保存聊天记录错误:', error);
+        res.status(500).json({ error: '服务器内部错误' });
+    }
+});
+
+// 获取聊天记录API (管理员用)
+app.get('/api/admin/chat-records', async (req, res) => {
+    try {
+        const { user_id, task_type, limit = 100, offset = 0 } = req.query;
+        
+        // 构建查询条件
+        const query = {};
+        if (user_id) {
+            query.user_id = user_id;
+        }
+        if (task_type) {
+            query.task_type = task_type;
+        }
+        
+        // 获取总数
+        const total = await chatRecordsCollection.countDocuments(query);
+        
+        // 获取记录
+        const records = await chatRecordsCollection
+            .find(query)
+            .sort({ timestamp: -1 })
+            .limit(parseInt(limit))
+            .skip(parseInt(offset))
+            .toArray();
+        
+        console.log(`📊 返回 ${records.length} 条聊天记录，总计 ${total} 条`);
+        res.json({
+            status: 'success',
+            data: records,
+            total: total
+        });
+        
+    } catch (error) {
+        console.error('获取聊天记录错误:', error);
+        res.status(500).json({ error: '服务器内部错误' });
+    }
+});
+
+// 获取用户统计API (管理员用)
+app.get('/api/admin/user-stats', async (req, res) => {
+    try {
+        const stats = await userStatsCollection
+            .find({})
+            .sort({ last_active: -1 })
+            .toArray();
+        
+        res.json({
+            status: 'success',
+            data: stats
+        });
+        
+    } catch (error) {
+        console.error('获取用户统计错误:', error);
+        res.status(500).json({ error: '服务器内部错误' });
+    }
+});
+
+// 删除聊天记录API (管理员用)
+app.delete('/api/admin/delete-chat-records', async (req, res) => {
+    try {
+        const { record_ids } = req.body;
+        
+        if (!record_ids || !Array.isArray(record_ids) || record_ids.length === 0) {
+            return res.status(400).json({ error: '请提供要删除的记录ID列表' });
+        }
+        
+        // 将字符串ID转换为ObjectId
+        const { ObjectId } = require('mongodb');
+        const objectIds = record_ids.map(id => new ObjectId(id));
+        
+        const result = await chatRecordsCollection.deleteMany({
+            _id: { $in: objectIds }
+        });
+        
+        console.log(`🗑️ 成功删除 ${result.deletedCount} 条聊天记录`);
+        res.json({
+            status: 'success',
+            message: '聊天记录删除成功',
+            deleted_count: result.deletedCount
+        });
+        
+    } catch (error) {
+        console.error('删除聊天记录错误:', error);
+        res.status(500).json({ error: '服务器内部错误' });
+    }
+});
+
+// 删除用户统计API (管理员用)
+app.delete('/api/admin/delete-user-stats', async (req, res) => {
+    try {
+        const { stat_ids } = req.body;
+        
+        if (!stat_ids || !Array.isArray(stat_ids) || stat_ids.length === 0) {
+            return res.status(400).json({ error: '请提供要删除的统计ID列表' });
+        }
+        
+        // 将字符串ID转换为ObjectId
+        const { ObjectId } = require('mongodb');
+        const objectIds = stat_ids.map(id => new ObjectId(id));
+        
+        const result = await userStatsCollection.deleteMany({
+            _id: { $in: objectIds }
+        });
+        
+        console.log(`🗑️ 成功删除 ${result.deletedCount} 条用户统计记录`);
+        res.json({
+            status: 'success',
+            message: '用户统计删除成功',
+            deleted_count: result.deletedCount
+        });
+        
+    } catch (error) {
+        console.error('删除用户统计错误:', error);
+        res.status(500).json({ error: '服务器内部错误' });
+    }
+});
+
+// 更新用户统计
+async function updateUserStats(userId, taskType) {
+    try {
+        await userStatsCollection.updateOne(
+            { user_id: userId },
+            {
+                $inc: { total_messages: 1 },
+                $set: { 
+                    last_active: new Date(),
+                    task_type: taskType
+                },
+                $setOnInsert: {
+                    user_id: userId,
+                    total_ideas: 0,
+                    created_at: new Date()
+                }
+            },
+            { upsert: true }
+        );
+    } catch (error) {
+        console.error('更新用户统计失败:', error);
+    }
+}
 
 // 健康检查API
 app.get('/api/health', (req, res) => {
