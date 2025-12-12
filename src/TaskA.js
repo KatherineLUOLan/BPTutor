@@ -3,40 +3,20 @@ import './TaskA.css';
 
 const TaskA = ({ userInfo, onLogout }) => {
   // 状态管理
-  const [writings, setWritings] = useState({
-    userPainPoints: '',
-    marketAnalysis: '',
-    productIntro: '',
-    competitiveAnalysis: '',
-    feasibilityAnalysis: '',
-    fundingPlan: '',
-    teamIntro: ''
-  });
-  const [selectedSection, setSelectedSection] = useState(1);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [selectedSection, setSelectedSection] = useState(1);
   
   // 引用
   const chatEndRef = useRef(null);
 
-  // 写作框架模板 - 针对Task A的基础写作
+  // 写作框架模板
   const writingFramework = [
     { 
       id: 1, 
-      title: '用户痛点', 
-      placeholder: `🎯 用户痛点分析
-
-请详细描述你的目标用户群体和他们的核心痛点：
-
-• 目标用户是谁？（年龄、职业、收入、行为特征）
-• 用户当前面临什么具体问题？
-• 这些问题给用户带来什么损失或困扰？
-• 用户现在是如何解决这些问题的？
-• 现有解决方案有什么不足？
-
-请用具体的数据和案例来说明。`,
+      title: '用户痛点',
       examples: [
         '我的目标用户群体是什么？',
         '用户当前面临的主要痛点有哪些？',
@@ -46,18 +26,7 @@ const TaskA = ({ userInfo, onLogout }) => {
     },
     { 
       id: 2, 
-      title: '市场分析', 
-      placeholder: `📊 市场分析
-
-请分析你的目标市场：
-
-• 市场规模有多大？（用具体数据说明）
-• 市场增长趋势如何？
-• 市场有哪些细分领域？
-• 市场的主要驱动因素是什么？
-• 有哪些政策或技术趋势会影响市场？
-
-请提供可靠的数据来源。`,
+      title: '市场分析',
       examples: [
         '目标市场的规模有多大？',
         '市场增长趋势如何？',
@@ -67,18 +36,7 @@ const TaskA = ({ userInfo, onLogout }) => {
     },
     { 
       id: 3, 
-      title: '产品介绍', 
-      placeholder: `🚀 产品介绍
-
-请详细介绍你的产品或服务：
-
-• 产品的核心功能是什么？
-• 产品如何解决用户痛点？
-• 产品有哪些独特的功能或特点？
-• 产品能为用户创造什么价值？
-• 产品的使用场景和流程是怎样的？
-
-请用简洁明了的语言描述。`,
+      title: '产品介绍',
       examples: [
         '我的产品核心功能是什么？',
         '产品如何解决用户痛点？',
@@ -88,18 +46,7 @@ const TaskA = ({ userInfo, onLogout }) => {
     },
     { 
       id: 4, 
-      title: '竞争分析', 
-      placeholder: `⚔️ 竞争分析
-
-请分析你的竞争对手：
-
-• 主要竞争对手有哪些？
-• 竞争对手的产品、价格、渠道、营销策略如何？
-• 我们的产品与竞品相比有什么优势？
-• 市场上还有哪些替代方案？
-• 如何建立竞争壁垒？
-
-请客观分析，不要贬低竞争对手。`,
+      title: '竞争分析',
       examples: [
         '主要竞争对手有哪些？',
         '我们的产品与竞品相比有什么优势？',
@@ -109,18 +56,7 @@ const TaskA = ({ userInfo, onLogout }) => {
     },
     { 
       id: 5, 
-      title: '可行性分析', 
-      placeholder: `✅ 可行性分析
-
-请分析项目的可行性：
-
-• 技术实现的难点和风险在哪里？
-• 运营模式是否可持续？
-• 需要什么资源和团队？
-• 预期的成本结构是什么？
-• 可能面临哪些法律或监管风险？
-
-请诚实评估项目的可行性。`,
+      title: '可行性分析',
       examples: [
         '技术实现的难点在哪里？',
         '运营模式是否可持续？',
@@ -130,18 +66,7 @@ const TaskA = ({ userInfo, onLogout }) => {
     },
     { 
       id: 6, 
-      title: '融资计划', 
-      placeholder: `💰 融资计划
-
-请制定融资计划：
-
-• 计划融资多少？分几轮？
-• 资金主要用在哪些方面？
-• 预期的估值和投资回报如何？
-• 有哪些退出机制？
-• 如何吸引投资者？
-
-请提供具体的财务预测。`,
+      title: '融资计划',
       examples: [
         '计划融资多少？分几轮？',
         '资金主要用在哪些方面？',
@@ -151,18 +76,7 @@ const TaskA = ({ userInfo, onLogout }) => {
     },
     { 
       id: 7, 
-      title: '团队介绍', 
-      placeholder: `👥 团队介绍
-
-请介绍你的团队：
-
-• 核心团队成员有哪些？
-• 各自的背景和专长是什么？
-• 团队在这个领域有什么优势？
-• 团队还缺少什么关键角色？
-• 如何吸引和留住优秀人才？
-
-请突出团队的执行力。`,
+      title: '团队介绍',
       examples: [
         '核心团队成员有哪些？',
         '团队有什么独特优势？',
@@ -172,7 +86,13 @@ const TaskA = ({ userInfo, onLogout }) => {
     }
   ];
 
-  // 获取当前聊天消息
+  // 获取当前选中部分的示例问题
+  const getCurrentExampleQuestions = () => {
+    const currentFramework = writingFramework.find(f => f.id === selectedSection);
+    return currentFramework?.examples || [];
+  };
+
+  // 获取当前部分的聊天消息（用于显示）
   const getCurrentChatMessages = () => {
     return chatMessages.filter(msg => msg.sectionId === selectedSection);
   };
@@ -186,60 +106,57 @@ const TaskA = ({ userInfo, onLogout }) => {
     scrollToBottom();
   }, [chatMessages, selectedSection]);
 
-  // 获取当前框架项对应的字段名
-  const getFieldName = (frameworkId) => {
-    const fieldMap = {
-      1: 'userPainPoints',
-      2: 'marketAnalysis',
-      3: 'productIntro',
-      4: 'competitiveAnalysis',
-      5: 'feasibilityAnalysis',
-      6: 'fundingPlan',
-      7: 'teamIntro'
+  // 加载聊天历史
+  useEffect(() => {
+    const loadChatHistory = async () => {
+      try {
+        setIsLoadingHistory(true);
+        const response = await fetch(
+          `http://localhost:5050/api/chat-history?user_id=${userInfo.username}&task_type=taskA`
+        );
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+          // 将数据库记录转换为聊天消息格式，保留 sectionId 信息
+          const messages = data.data.map(record => ({
+            id: record._id || Date.now() + Math.random(),
+            type: record.message_type,
+            content: record.content,
+            timestamp: new Date(record.timestamp),
+            sectionId: record.section_id || null,
+            sectionName: record.section_name || null
+          }));
+          
+          setChatMessages(messages);
+          console.log(`✅ 加载了 ${messages.length} 条聊天历史`);
+        }
+      } catch (error) {
+        console.error('加载聊天历史失败:', error);
+      } finally {
+        setIsLoadingHistory(false);
+      }
     };
-    return fieldMap[frameworkId];
-  };
 
-  // 更新写作内容
-  const updateWriting = (field, value) => {
-    setWritings({
-      ...writings,
-      [field]: value
-    });
-  };
-
-  // 保存写作内容
-  const saveWriting = () => {
-    console.log('保存写作内容:', writings);
-    alert('写作内容已保存！');
-  };
-
-  // 清空当前写作
-  const clearWriting = () => {
-    if (window.confirm('确定要清空当前写作内容吗？')) {
-      setWritings({
-        userPainPoints: '',
-        marketAnalysis: '',
-        productIntro: '',
-        competitiveAnalysis: '',
-        feasibilityAnalysis: '',
-        fundingPlan: '',
-        teamIntro: ''
-      });
+    if (userInfo && userInfo.username) {
+      loadChatHistory();
     }
-  };
+  }, [userInfo]);
 
   // 发送聊天消息
   const sendChatMessage = async (messageText = null) => {
     const text = messageText || chatInput.trim();
     if (!text || isLoading) return;
 
+    const currentFramework = writingFramework.find(f => f.id === selectedSection);
+
     const userMessage = {
       id: Date.now(),
       type: 'user',
       content: text,
       timestamp: new Date(),
-      sectionId: selectedSection
+      sectionId: selectedSection,
+      sectionName: currentFramework?.title
     };
 
     const newMessages = [...chatMessages, userMessage];
@@ -251,9 +168,6 @@ const TaskA = ({ userInfo, onLogout }) => {
     saveChatToDatabase(userMessage);
 
     try {
-      const currentFramework = writingFramework.find(f => f.id === selectedSection);
-      const currentWriting = writings[getFieldName(selectedSection)];
-      
       const response = await fetch('http://localhost:5050/api/strategy', {
         method: 'POST',
         headers: {
@@ -263,10 +177,14 @@ const TaskA = ({ userInfo, onLogout }) => {
           query: text,
           context: {
             ideaText: '商业计划书写作',
-            currentSection: currentFramework?.title,
-            allWritings: writings,
-            currentSectionContent: currentWriting,
-            chatHistory: getCurrentChatMessages().slice(-6)
+            currentSection: currentFramework?.title || '商业计划书',
+            allWritings: {},
+            currentSectionContent: '',
+            // 使用所有部分的聊天历史作为上下文（合并的记忆）
+            chatHistory: chatMessages.slice(-6).map(msg => ({
+              role: msg.type === 'user' ? 'user' : 'assistant',
+              content: msg.content
+            }))
           }
         }),
       });
@@ -279,7 +197,8 @@ const TaskA = ({ userInfo, onLogout }) => {
           type: 'ai',
           content: data.data.choices[0].message.content,
           timestamp: new Date(),
-          sectionId: selectedSection
+          sectionId: selectedSection,
+          sectionName: currentFramework?.title
         };
         
         setChatMessages([...newMessages, aiMessage]);
@@ -296,7 +215,8 @@ const TaskA = ({ userInfo, onLogout }) => {
         type: 'ai',
         content: '抱歉，服务暂时不可用，请稍后重试。',
         timestamp: new Date(),
-        sectionId: selectedSection
+        sectionId: selectedSection,
+        sectionName: currentFramework?.title
       };
       
       setChatMessages([...newMessages, errorMessage]);
@@ -308,13 +228,11 @@ const TaskA = ({ userInfo, onLogout }) => {
   // 保存聊天记录到数据库
   const saveChatToDatabase = async (message) => {
     try {
-      const sectionName = writingFramework.find(f => f.id === message.sectionId)?.title || '未知板块';
-      
       console.log('保存聊天记录到数据库:', {
         user_id: userInfo.username,
         task_type: 'taskA',
         section_id: message.sectionId,
-        section_name: sectionName,
+        section_name: message.sectionName,
         message_type: message.type,
         content: message.content.substring(0, 50) + '...',
         timestamp: message.timestamp
@@ -328,8 +246,8 @@ const TaskA = ({ userInfo, onLogout }) => {
         body: JSON.stringify({
           user_id: userInfo.username,
           task_type: 'taskA',
-          section_id: message.sectionId,
-          section_name: sectionName,
+          section_id: message.sectionId || null,
+          section_name: message.sectionName || null,
           message_type: message.type,
           content: message.content,
           timestamp: message.timestamp
@@ -357,13 +275,8 @@ const TaskA = ({ userInfo, onLogout }) => {
     }
   };
 
-  // 切换全屏模式
-  const toggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen);
-  };
-
   return (
-    <div className={`task-a-container ${isFullscreen ? 'fullscreen-mode' : ''}`}>
+    <div className="task-a-container">
       {/* 头部 */}
       <div className="task-a-header">
         <h1>Task A - 基础商业计划书写作</h1>
@@ -383,69 +296,36 @@ const TaskA = ({ userInfo, onLogout }) => {
       </div>
       
       <div className="task-a-content">
-        {/* 左侧：写作工作区 */}
-        <div className="writing-panel">
-          <div className="writing-header">
-            <h3>✍️ 写作工作区</h3>
-            <div className="writing-tools">
-              <button className="tool-btn" onClick={saveWriting}>保存</button>
-              <button className="tool-btn" onClick={clearWriting}>清空</button>
-              <button className="tool-btn fullscreen-btn" onClick={toggleFullscreen}>
-                {isFullscreen ? "⤓" : "⤢"}
-              </button>
-            </div>
-          </div>
-          
-          <div className="writing-content">
-            {/* 左侧：写作框架 */}
-            <div className="writing-framework">
-              <h4>写作框架</h4>
-              {writingFramework.map(section => (
-                <div 
-                  key={section.id} 
-                  className={`framework-section ${selectedSection === section.id ? 'active' : ''}`}
-                  onClick={() => setSelectedSection(section.id)}
-                >
-                  <label>{section.title}</label>
-                </div>
-              ))}
-            </div>
-
-            {/* 右侧：写作区域 */}
-            <div className="writing-editor">
-              <div className="editor-field">
-                <div className="editor-field-header">
-                  {writingFramework.find(s => s.id === selectedSection)?.title}
-                </div>
-                <textarea
-                  value={writings[getFieldName(selectedSection)] || ''}
-                  onChange={(e) => updateWriting(getFieldName(selectedSection), e.target.value)}
-                  placeholder={writingFramework.find(s => s.id === selectedSection)?.placeholder}
-                  className="editor-textarea"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 右侧：聊天区域 */}
-        <div className="chat-panel">
+        {/* 聊天区域 */}
+        <div className="chat-panel chat-open">
           <div className="chat-header">
             <h3>🤖 GPT 写作助手</h3>
             <div className="chat-tools">
-              <span className="current-section-indicator">
-                {writingFramework.find(f => f.id === selectedSection)?.title}
-              </span>
+              <select 
+                className="framework-select"
+                value={selectedSection}
+                onChange={(e) => setSelectedSection(Number(e.target.value))}
+              >
+                {writingFramework.map(framework => (
+                  <option key={framework.id} value={framework.id}>
+                    {framework.title}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           
           <div className="chat-messages">
-            {getCurrentChatMessages().length === 0 ? (
+            {isLoadingHistory ? (
+              <div className="empty-chat">
+                <p>正在加载聊天历史...</p>
+              </div>
+            ) : getCurrentChatMessages().length === 0 ? (
               <div className="empty-chat">
                 <p>💡 关于「{writingFramework.find(f => f.id === selectedSection)?.title}」</p>
                 <p>你可以问我以下问题来完善写作：</p>
                 <div className="example-questions">
-                  {writingFramework.find(f => f.id === selectedSection)?.examples.map((example, index) => (
+                  {getCurrentExampleQuestions().map((example, index) => (
                     <div 
                       key={index} 
                       className="example-question"

@@ -287,12 +287,77 @@ ${baseContext}
 
 
     async analyzeWritingChanges(context = {}) {
-        const { ideaText, previousIdeaText, previousWritings, currentWritings, currentSection } = context;
+        const { ideaText, previousIdeaText, parentChainText, parentChain, previousWritings, currentWritings, currentSection, connectionType } = context;
         
         // 合并分析：既分析idea变化，也分析writing内容变化
         const writingComparison = this.buildWritingComparison(previousWritings, currentWritings);
         
-        const systemPrompt = `你是一个认知分析专家。分析用户的想法变化，用简洁自然的语言说明变化原因，不要使用固定的格式或结构。每次分析都采用不同的表达方式。`;
+        // 根据连接类型设置不同的分析重点
+        let systemPrompt = '';
+        let analysisFocus = '';
+        
+        if (connectionType === 'refine') {
+            // 细化：分析用户细化了什么
+            systemPrompt = `你是一个创业认知分析专家。分析用户如何细化创业想法，用简洁自然的语言说明用户细化了什么方面或维度，不要使用固定的格式或结构。每次分析都采用不同的表达方式。
+
+**重要要求**：只返回第一段总结性分析（1-2句话），说明用户细化了什么，不要展开详细分析，不要列举特征，不要提问。保持简洁，只说明核心细化内容。`;
+            analysisFocus = '请用1-2句话简洁地总结用户细化了什么方面或维度，不要展开详细分析。';
+        } else if (connectionType === 'branch') {
+            // 分支：对比分析新想法与父节点链
+            systemPrompt = `你是一个创业认知分析专家。分析用户创建的新分支创业想法，需要对比新想法与整个父节点链（所有之前的想法）的差异。用简洁自然的语言说明新想法与之前想法的对比，突出新想法的不同之处或改进点，不要使用固定的格式或结构。每次分析都采用不同的表达方式。
+
+**重要要求**：
+1. 必须考虑整个父节点链的所有信息（从根节点到直接父节点）
+2. 对比新想法与父节点链的差异，说明新想法的特点
+3. 只返回第一段总结性分析（1-2句话），不要展开详细分析，不要列举特征，不要提问
+4. 保持简洁，只说明核心对比内容`;
+            analysisFocus = '请用1-2句话简洁地对比新想法与父节点链的差异，说明新想法的特点，不要展开详细分析。';
+        } else {
+            // 默认：通用分析
+            systemPrompt = `你是一个创业认知分析专家。分析用户的创业想法变化，用简洁自然的语言说明变化原因，不要使用固定的格式或结构。每次分析都采用不同的表达方式。避免使用"从未知到..."这样的表述，如果前一个想法为空，直接分析新想法的特点。
+
+**重要要求**：只返回第一段总结性分析（1-2句话），不要展开详细分析，不要列举特征，不要提问。保持简洁，只说明核心变化或特点。`;
+            analysisFocus = '请用1-2句话简洁地总结这个想法的特点或变化原因，不要展开详细分析。';
+        }
+
+        // 构建用户消息内容
+        let userContent = '';
+        
+        if (connectionType === 'branch' && parentChain && parentChain.length > 0) {
+            // 分支：需要展示整个父节点链
+            const chainDescription = parentChain.map((node, index) => {
+                return `${index + 1}. ${node.text || '未命名'}`;
+            }).join('\n');
+            
+            userContent = `用户${currentSection || '创建了新分支想法'}：
+
+父节点链（从根节点到直接父节点）：
+${chainDescription}
+
+新想法：${ideaText || '未命名'}`;
+            
+            // 如果有父节点链的文本描述，也加入
+            if (parentChainText && parentChainText.trim()) {
+                userContent += `\n\n父节点链路径：${parentChainText}`;
+            }
+        } else if (previousIdeaText && previousIdeaText.trim()) {
+            // 如果有前一个想法，分析变化
+            userContent = `用户${currentSection || '创建了新想法'}：
+
+前一个想法：${previousIdeaText}
+新想法：${ideaText || '未命名'}`;
+        } else {
+            // 如果没有前一个想法，直接分析新想法
+            userContent = `用户${currentSection || '创建了新想法'}：
+
+新想法：${ideaText || '未命名'}`;
+        }
+        
+        if (writingComparison && writingComparison !== '暂无内容变化') {
+            userContent += `\n\n同时写作内容也有变化：\n${writingComparison}`;
+        }
+        
+        userContent += `\n\n${analysisFocus}`;
 
         const messages = [
             {
@@ -301,16 +366,7 @@ ${baseContext}
             },
             {
                 role: "user",
-                content: `用户修改了想法内容：
-
-前一个想法：${previousIdeaText || '未知'}
-新想法：${ideaText || '未命名'}
-板块：${currentSection || '未知'}
-
-同时写作内容也有变化：
-${writingComparison}
-
-请分析为什么会发生这些变化？`
+                content: userContent
             }
         ];
 
@@ -457,6 +513,42 @@ app.post('/api/save-chat', async (req, res) => {
         
     } catch (error) {
         console.error('保存聊天记录错误:', error);
+        res.status(500).json({ error: '服务器内部错误' });
+    }
+});
+
+// 获取用户聊天历史API
+app.get('/api/chat-history', async (req, res) => {
+    try {
+        const { user_id, task_type } = req.query;
+        
+        if (!user_id || !task_type) {
+            return res.status(400).json({ 
+                error: '缺少必要参数',
+                status: 'error'
+            });
+        }
+        
+        // 构建查询条件
+        const query = {
+            user_id: user_id,
+            task_type: task_type
+        };
+        
+        // 获取记录，按时间正序排列（最早的在前）
+        const records = await chatRecordsCollection
+            .find(query)
+            .sort({ timestamp: 1 })
+            .toArray();
+        
+        console.log(`📊 返回用户 ${user_id} 的 ${records.length} 条聊天记录`);
+        res.json({
+            status: 'success',
+            data: records
+        });
+        
+    } catch (error) {
+        console.error('获取聊天历史错误:', error);
         res.status(500).json({ error: '服务器内部错误' });
     }
 });

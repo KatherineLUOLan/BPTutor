@@ -79,7 +79,9 @@ body {
 .header-controls {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  gap: 1rem;
+  justify-content: space-between;
+  flex: 1;
 }
 
 .task-switcher {
@@ -176,7 +178,7 @@ body {
   display: flex;
   gap: 1rem;
   padding: 1rem; /* 恢复四周的padding */
-  overflow: hidden;
+  overflow: visible; /* 改为visible，允许卡片延伸到屏幕外 */
   height: calc(100vh - 80px); /* 减去头部高度 */
 }
 
@@ -187,21 +189,43 @@ body {
   flex-direction: column;
   gap: 1rem;
   min-width: 0;
+  height: 100%;
+  overflow: visible; /* 允许内容超出 */
+}
+
+/* 画布区域占满整个左侧面板 */
+.idea-canvas-section {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
 }
 
 /* 右侧聊天区域 - 加宽 */
 .chat-section {
-  flex: 0 0 500px; /* 从400px增加到500px */
-  max-width: 500px; /* 从400px增加到500px */
+  /* 默认使用浮层模式（所有触摸设备） */
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 85%;
+  max-width: 400px;
+  height: 100vh;
+  z-index: 9999;
+  transform: translateX(100%);
+  transition: transform 0.3s ease-out;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
+  border-radius: 0;
+  margin: 0;
   display: flex;
   flex-direction: column;
   background: rgba(255, 255, 255, 0.95);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
   overflow: hidden;
+}
+
+.chat-section.chat-open {
+  transform: translateX(0);
 }
 
 
@@ -212,21 +236,6 @@ body {
   flex-direction: column;
   gap: 1rem;
   min-width: 0;
-}
-
-/* 右侧聊天区域 - 加宽 */
-.chat-section {
-  flex: 0 0 500px; /* 从400px增加到500px */
-  max-width: 500px; /* 从400px增加到500px */
-  display: flex;
-  flex-direction: column;
-  background: rgba(255, 255, 255, 0.95);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  overflow: hidden;
 }
 
 /* ========================================
@@ -248,6 +257,9 @@ body {
 .idea-canvas-section {
   flex: 1;
   min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  overflow: visible; /* 改为visible，允许箭头延伸到屏幕外 */
 }
 
 .writing-section {
@@ -269,6 +281,108 @@ body {
   flex-shrink: 0;
 }
 
+/* 画布头部特殊布局（三行结构） */
+.canvas-header {
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.8);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.canvas-header-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.canvas-header-row:first-child {
+  /* 第一行：标题和控制按钮 */
+  justify-content: space-between;
+  align-items: center;
+}
+
+.canvas-header-row:first-child h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.canvas-header-row:first-child .zoom-controls {
+  flex-shrink: 0;
+}
+
+.canvas-header-row:nth-child(2) {
+  /* 第二行：输入框 */
+  justify-content: flex-start;
+}
+
+.canvas-header-row:nth-child(2) .idea-input-group {
+  width: 100%;
+  max-width: 100%;
+}
+
+.canvas-header-row:last-child {
+  /* 第三行：控制按钮 */
+  justify-content: flex-start;
+}
+
+/* 聊天框头部特殊布局 */
+.chat-section .section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: nowrap; /* 确保不换行 */
+  min-width: 0; /* 允许flex子元素收缩 */
+}
+
+.chat-section .section-header h3 {
+  flex-shrink: 0;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-section .chat-tools {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 0 auto; /* 不收缩，保持内容宽度 */
+  min-width: 0;
+}
+
+/* 框架选择下拉框 */
+.framework-select {
+  padding: 0.25rem 0.6rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: white;
+  color: #2d3748;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s;
+  min-width: 120px;
+  height: auto;
+}
+
+.framework-select:hover {
+  border-color: #667eea;
+}
+
+.framework-select:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
 .section-header h3 {
   color: #2d3748;
   font-size: 1.1rem;
@@ -285,6 +399,7 @@ body {
   gap: 1rem;
   align-items: center;
   flex: 1;
+  justify-content: space-between;
 }
 
 .idea-input-group {
@@ -296,10 +411,10 @@ body {
 
 .idea-input {
   flex: 1;
-  padding: 0.5rem 0.75rem;
+  padding: 0.4rem 0.6rem;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   outline: none;
   transition: border-color 0.2s;
 }
@@ -310,17 +425,17 @@ body {
 }
 
 .add-idea-btn {
-  padding: 0.5rem 0.75rem;
+  padding: 0.25rem 0.4rem;
   background: #667eea;
   color: white;
   border: none;
   border-radius: 6px;
-  font-size: 1.2rem;
+  font-size: 0.85rem;
   font-weight: bold;
   cursor: pointer;
   transition: background-color 0.2s;
-  min-width: 40px;
-  height: 38px;
+  min-width: 22px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -333,37 +448,39 @@ body {
 /* 缩放控制 */
 .zoom-controls {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.25rem;
   align-items: center;
   background: rgba(255, 255, 255, 0.9);
-  padding: 0.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 0.2rem;
+  border-radius: 5px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  flex-wrap: nowrap; /* 确保按钮不换行 */
+  white-space: nowrap;
 }
 
 .zoom-value {
-  font-size: 0.9rem;
+  font-size: 0.7rem;
   color: #667eea;
-  font-weight: 700;
-  min-width: 50px;
+  font-weight: 600;
+  min-width: 28px;
   text-align: center;
   background: rgba(102, 126, 234, 0.1);
-  padding: 0.3rem 0.6rem;
-  border-radius: 4px;
+  padding: 0.1rem 0.25rem;
+  border-radius: 3px;
 }
 
 .zoom-btn {
-  padding: 0.4rem 0.8rem;
+  padding: 0.15rem 0.3rem;
   background: #667eea;
   color: white;
   border: none;
-  border-radius: 6px;
-  font-size: 1rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
-  min-width: 36px;
-  height: 36px;
+  min-width: 18px;
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -380,31 +497,57 @@ body {
 }
 
 .zoom-btn.reset-btn {
-  font-size: 1.1rem;
+  font-size: 0.75rem;
 }
 
-.zoom-btn.fullscreen-btn {
-  font-size: 1.2rem;
+/* 聊天按钮样式 */
+.chat-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 40px;
+  font-size: 1.5rem;
+  padding: 0.5rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.chat-toggle-btn:active {
+  background: #5a67d8;
+  transform: scale(0.95);
 }
 
 /* 画布容器 */
-.canvas-container {
-  position: relative;
-  flex: 1;
-  background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
-  overflow: hidden;
-  cursor: grab;
-}
-
-.canvas-container:active {
-  cursor: grabbing;
-}
+  .canvas-container {
+    position: relative;
+    flex: 1;
+    background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+    overflow: visible; /* 改为visible，允许箭头延伸到屏幕外 */
+    touch-action: none; /* 禁用默认触摸行为，使用自定义拖拽和缩放 */
+    -webkit-overflow-scrolling: touch;
+    min-height: 0;
+  }
+  
+  /* 想法气泡触摸优化 */
+  .idea-bubble {
+    touch-action: none; /* 禁用默认触摸行为，使用自定义拖拽 */
+    -webkit-user-select: none;
+    user-select: none;
+  }
 
 .canvas-content {
   position: relative;
-  width: 100%;
-  height: 100%;
-  transform-origin: center center;
+  min-width: 100%;
+  min-height: 100%;
+  width: auto;
+  height: auto;
+  transform-origin: 0 0; /* 改变变换原点，使拖拽更自然 */
+  pointer-events: auto;
 }
 
 /* SVG 连接线 */
@@ -412,11 +555,9 @@ body {
   position: absolute;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
   pointer-events: none;
   z-index: 1;
-  transform-origin: center center;
+  transform-origin: 0 0;
 }
 
 .connection-line {
@@ -439,7 +580,6 @@ body {
   color: #2d3748;
   font-size: 0.9rem;
   font-weight: 500;
-  cursor: grab;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
   transition: transform 0.2s, box-shadow 0.2s;
   max-width: 280px !important;
@@ -496,7 +636,6 @@ body {
 }
 
 .idea-bubble.dragging {
-  cursor: grabbing;
   opacity: 0.9;
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
   z-index: 1000;
@@ -544,10 +683,10 @@ body {
   border: none;
   color: #2d3748;
   border-radius: 50%;
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
   cursor: pointer;
-  font-size: 1.1rem;
+  font-size: 0.9rem;
   flex-shrink: 0;
   transition: all 0.2s;
   display: flex;
@@ -573,8 +712,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.3rem;
-  padding: 0.5rem;
+  gap: 0.25rem;
+  padding: 0.3rem 0.4rem;
   background: rgba(45, 55, 72, 0.1);
   border: 1px solid rgba(45, 55, 72, 0.2);
   border-radius: 8px;
@@ -1049,6 +1188,8 @@ body {
   display: flex;
   gap: 0.5rem;
   align-items: center;
+  justify-content: flex-end;
+  flex: 1;
 }
 
 .current-section-indicator {
@@ -1058,6 +1199,119 @@ body {
   padding: 0.4rem 0.8rem;
   background: rgba(102, 126, 234, 0.1);
   border-radius: 4px;
+}
+
+/* ========================================
+   聊天框框架下拉选择器
+   ======================================== */
+.framework-dropdown-container {
+  position: relative;
+  flex: 0 0 auto; /* 不收缩，保持内容宽度 */
+  min-width: 120px;
+  max-width: 200px;
+}
+
+.framework-dropdown-btn {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #4a5568;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 36px;
+}
+
+.framework-dropdown-btn:hover {
+  background: #f7fafc;
+  border-color: #cbd5e0;
+}
+
+.framework-dropdown-btn:active {
+  transform: scale(0.98);
+}
+
+.dropdown-arrow {
+  font-size: 0.7rem;
+  color: #a0aec0;
+  transition: transform 0.2s;
+}
+
+.framework-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  max-height: 300px;
+  overflow-y: auto;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.framework-dropdown-item {
+  padding: 0.6rem 0.75rem;
+  font-size: 0.85rem;
+  color: #4a5568;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 1px solid #f7fafc;
+}
+
+.framework-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.framework-dropdown-item:hover {
+  background: #f7fafc;
+  color: #667eea;
+}
+
+.framework-dropdown-item.active {
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+  font-weight: 600;
+}
+
+.framework-dropdown-item.active:hover {
+  background: rgba(102, 126, 234, 0.15);
+}
+
+/* 桌面端框架下拉选择器优化 */
+@media (min-width: 601px) {
+  .framework-dropdown-container {
+    max-width: 220px;
+  }
+  
+  .framework-dropdown-btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+  }
+  
+  .framework-dropdown-menu {
+    max-height: 350px;
+  }
 }
 
 .chat-messages {
@@ -1660,20 +1914,20 @@ body {
 
 /* Chat 输入区域 */
 .chat-input-group {
-  padding: 0.5rem; /* 从0.75rem进一步减少到0.5rem */
+  padding: 0.4rem 0.5rem; /* 减小上下padding */
   border-top: 1px solid rgba(0, 0, 0, 0.1);
   background: rgba(255, 255, 255, 0.8);
   display: flex;
   gap: 0.4rem; /* 从0.5rem进一步减少到0.4rem */
   align-items: flex-end;
   flex-shrink: 0;
-  min-height: 80px; /* 设置最小高度 */
+  min-height: 70px; /* 减小最小高度 */
   max-height: 120px; /* 设置最大高度，防止输入框过大 */
 }
 
 .chat-input {
   flex: 1;
-  padding: 0.4rem; /* 从0.6rem进一步减少到0.4rem */
+  padding: 0.3rem 0.5rem; /* 减小上下padding，保持左右padding */
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   font-family: inherit;
@@ -1746,7 +2000,7 @@ body {
 }
 
 .send-btn {
-  padding: 0.6rem 1rem;
+  padding: 0.5rem 1.5rem; /* 减小上下padding，增加左右padding让按钮更宽 */
   background: #667eea;
   color: white;
   border: none;
@@ -1756,6 +2010,7 @@ body {
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
+  min-width: 70px; /* 设置最小宽度 */
 }
 
 .send-btn:hover:not(:disabled) {
@@ -1865,32 +2120,519 @@ body {
   }
 }
 
+/* ========================================
+   移动端适配（手机屏幕）
+   ======================================== */
 @media (max-width: 600px) {
   .app-header {
     padding: 0.75rem 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
   
   .app-header h1 {
+    font-size: 1rem;
+    flex: 1 1 100%;
+    order: 1;
+  }
+  
+  .header-right {
+    flex: 1 1 100%;
+    order: 2;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .user-info {
+    flex: 1;
+    min-width: 0;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+  }
+  
+  .user-name {
+    font-size: 0.8rem;
+  }
+  
+  .user-task {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.4rem;
+  }
+  
+  .logout-btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+  
+  .status-indicator {
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+  
+  .app-content {
+    padding: 0.5rem;
+    gap: 0.5rem;
+    flex-direction: row;
+    height: calc(100vh - 120px);
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .left-panel {
+    flex: 1;
+    min-height: 0;
+    gap: 0;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  /* 移动端隐藏写作区域 */
+  .writing-section {
+    display: none !important;
+  }
+  
+  /* 移动端画布区域占满整个空间 */
+  .idea-canvas-section {
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+    width: 100%;
+  }
+  
+  /* 移动端聊天浮层遮罩 */
+  .chat-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9998;
+    animation: fadeIn 0.3s ease-out;
+  }
+  
+  /* 移动端聊天浮层样式 */
+  .chat-section {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 85%;
+    max-width: 400px;
+    height: 100vh;
+    z-index: 9999;
+    transform: translateX(100%);
+    transition: transform 0.3s ease-out;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
+    border-radius: 0;
+    margin: 0;
+    flex: none;
+  }
+  
+  /* 聊天浮层打开状态 */
+  .chat-section.chat-open {
+    transform: translateX(0);
+  }
+  
+  /* 移动端聊天打开按钮 */
+  /* 聊天按钮使用基础样式 */
+  
+  .mobile-only {
+    display: block;
+  }
+  
+  /* 移动端聊天关闭按钮 */
+  .chat-close-btn.mobile-only {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
     font-size: 1.2rem;
+    line-height: 1;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  
+  .chat-close-btn:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.5);
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
   
   .section-header {
     padding: 0.75rem 1rem;
+    flex-wrap: nowrap; /* 确保不换行 */
+    gap: 0.5rem;
+  }
+  
+  .chat-section .section-header {
+    flex-wrap: nowrap;
   }
   
   .section-header h3 {
-  font-size: 1rem;
-}
-
-  .idea-bubble {
-    min-width: 150px;
-    max-width: 200px;
-    padding: 0.75rem;
+    font-size: 0.9rem;
+    flex: 0 0 auto; /* 不换行 */
+    white-space: nowrap;
   }
   
-  .writing-framework {
-    width: 160px; /* 从100px增加到160px，确保文字完整显示 */
+  .chat-section .section-header h3 {
+    font-size: 0.85rem;
+    flex: 0 0 auto;
   }
+  
+  /* 画布头部移动端布局 - 紧凑设计 */
+  .canvas-header {
+    padding: 0.4rem 0.75rem;
+    gap: 0.35rem;
+  }
+  
+  .canvas-header-row {
+    gap: 0.4rem;
+  }
+  
+  .canvas-header-row:first-child {
+    flex-wrap: nowrap; /* 确保标题和按钮在同一行 */
+    justify-content: space-between;
+  }
+  
+  .canvas-header-row:first-child h3 {
+    font-size: 0.8rem;
+    flex-shrink: 0;
+  }
+  
+  .canvas-header-row:first-child .zoom-controls {
+    flex-shrink: 0;
+  }
+  
+  .idea-input-group {
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  .idea-input {
+    font-size: 0.8rem;
+    padding: 0.35rem 0.5rem;
+  }
+  
+  .add-idea-btn {
+    padding: 0.25rem 0.4rem;
+    font-size: 0.85rem;
+    min-width: 22px;
+    height: 22px;
+  }
+  
+  .zoom-controls {
+    flex-wrap: nowrap; /* 确保按钮不换行 */
+    padding: 0.2rem;
+    gap: 0.3rem; /* 增加间距，让按钮更容易点击 */
+    white-space: nowrap;
+    justify-content: flex-end; /* 移动端右对齐 */
+    overflow-x: auto; /* 如果按钮太多，允许横向滚动 */
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .zoom-value {
+    font-size: 0.65rem;
+    min-width: 28px;
+    padding: 0.1rem 0.25rem;
+    flex-shrink: 0;
+  }
+  
+  .zoom-btn {
+    padding: 0.15rem 0.3rem;
+    font-size: 0.7rem;
+    min-width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+  
+  /* 聊天按钮使用基础样式 */
+  
+  .zoom-btn.reset-btn {
+    font-size: 0.7rem;
+  }
+  
+  .idea-canvas-section {
+    border-radius: 8px;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  /* 移动端隐藏写作区域 */
+  .writing-section {
+    display: none !important;
+  }
+  
+  .idea-bubble {
+    min-width: 150px !important;
+    max-width: 200px !important;
+    padding: 0.6rem;
+    font-size: 0.8rem;
+  }
+  
+  .idea-text {
+    font-size: 0.85rem;
+  }
+  
+  .idea-action-btn {
+    padding: 0.3rem 0.4rem;
+    font-size: 0.75rem;
+  }
+  
+  .action-text {
+    display: none; /* 移动端只显示图标 */
+  }
+  
+  /* 移动端隐藏所有写作相关元素 */
+  .writing-section {
+    display: none !important;
+  }
+  
+  .writing-content,
+  .writing-framework,
+  .writing-editor {
+    display: none !important;
+  }
+  
+  /* 移动端聊天浮层样式已在上面定义，这里不需要额外设置 */
+  
+  .chat-messages {
+    padding: 0.6rem;
+    gap: 0.6rem;
+  }
+  
+  .message {
+    max-width: 90%;
+  }
+  
+  .message-content {
+    font-size: 0.85rem;
+    padding: 0.5rem 0.7rem;
+    line-height: 1.4;
+  }
+  
+  .message-header {
+    font-size: 0.75rem;
+    padding: 0.5rem 0.7rem 0 0.7rem;
+  }
+  
+  .chat-input-group {
+    padding: 0.5rem;
+    gap: 0.4rem;
+    min-height: 70px;
+    max-height: 100px;
+  }
+  
+  .chat-input {
+    font-size: 0.85rem;
+    padding: 0.35rem 0.5rem; /* 减小上下padding */
+    min-height: 50px;
+    max-height: 80px;
+  }
+  
+  .send-btn {
+    padding: 0.45rem 1.2rem; /* 减小上下padding，增加左右padding */
+    font-size: 0.8rem;
+    white-space: nowrap;
+    min-width: 65px; /* 设置最小宽度 */
+  }
+  
+  .empty-chat {
+    padding: 1rem 0.5rem;
+  }
+  
+  .empty-chat p {
+    font-size: 0.85rem;
+  }
+  
+  .example-questions {
+    margin-top: 0.75rem;
+    gap: 0.4rem;
+  }
+  
+  .example-question {
+    padding: 0.6rem 0.8rem;
+    font-size: 0.8rem;
+  }
+  
+  .tool-btn {
+    padding: 0.4rem 0.7rem;
+    font-size: 0.75rem;
+  }
+  
+  .selected-idea-indicator {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.6rem;
+  }
+  
+  /* 移动端框架下拉选择器优化 */
+  .framework-select {
+    font-size: 0.85rem;
+    padding: 0.35rem 0.6rem;
+    min-width: 100px;
+    min-height: 36px; /* 减小最小高度 */
+  }
+  .framework-dropdown-container {
+    max-width: 150px;
+    flex: 1;
+  }
+  
+  .framework-dropdown-btn {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+    min-height: 36px;
+  }
+  
+  .framework-dropdown-menu {
+    max-height: 250px;
+  }
+  
+  .framework-dropdown-item {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.8rem;
+  }
+}
+
+/* 超小屏幕适配（小于400px） */
+@media (max-width: 400px) {
+  .app-header h1 {
+    font-size: 0.9rem;
+  }
+  
+  .app-content {
+    flex-direction: row; /* 超小屏幕也保持横向，画布占满 */
+    gap: 0;
+    padding: 0.5rem;
+  }
+  
+  .left-panel {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+  }
+  
+  .idea-canvas-section {
+    height: 100%;
+    width: 100%;
+  }
+  
+  .idea-bubble {
+    min-width: 160px !important;
+    max-width: 200px !important;
+    padding: 0.6rem;
+    font-size: 0.8rem;
+  }
+  
+  /* 超小屏幕聊天浮层宽度调整 */
+  .chat-section {
+    width: 90%;
+    max-width: 350px;
+  }
+  
+  .zoom-controls {
+    width: 100%;
+    justify-content: center;
+    gap: 0.25rem;
+  }
+  
+  /* 超小屏幕上聊天按钮更大 */
+  /* 聊天按钮使用基础样式 */
+  
+  /* 确保写作区域在超小屏幕也隐藏 */
+  .writing-section {
+    display: none !important;
+  }
+  
+  /* 超小屏幕框架下拉选择器优化 */
+  .framework-dropdown-container {
+    max-width: 120px;
+  }
+  
+  .framework-dropdown-btn {
+    padding: 0.35rem 0.5rem;
+    font-size: 0.75rem;
+    min-height: 32px;
+  }
+  
+  .framework-dropdown-item {
+    padding: 0.45rem 0.5rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* ========================================
+   所有设备都使用移动端浮层模式（触摸端）
+   ======================================== */
+/* 移除桌面端特殊样式，所有设备都使用浮层 */
+.mobile-only {
+  display: block;
+}
+
+.chat-section {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 85%;
+  max-width: 400px;
+  height: 100vh;
+  z-index: 9999;
+  transform: translateX(100%);
+  transition: transform 0.3s ease-out;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
+  border-radius: 0;
+  margin: 0;
+  flex: none;
+}
+
+.chat-section.chat-open {
+  transform: translateX(0);
+}
+
+/* 聊天按钮样式已在上面定义，移动端使用相同样式 */
+
+.chat-close-btn.mobile-only {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  font-size: 1.2rem;
+  line-height: 1;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.chat-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 9998;
+  animation: fadeIn 0.3s ease-out;
 }
 
 /* ========================================
@@ -2125,9 +2867,95 @@ body {
   .app .idea-bubble.editing,
   .app .idea-bubble.selected,
   .app .idea-bubble.dragging {
-    min-width: 200px !important;
-    max-width: 280px !important;
+    min-width: 180px !important;
+    max-width: 240px !important;
     width: auto !important;
+  }
+}
+
+/* ========================================
+   触摸友好的交互优化
+   ======================================== */
+@media (hover: none) and (pointer: coarse) {
+  /* 触摸设备优化 */
+  .idea-bubble {
+    touch-action: pan-y; /* 允许垂直滚动 */
+  }
+  
+  .idea-action-btn,
+  .zoom-btn,
+  .add-idea-btn,
+  .send-btn,
+  .tool-btn,
+  .logout-btn {
+    min-height: 44px; /* iOS推荐的最小触摸目标 */
+    min-width: 44px;
+  }
+  
+  .remove-idea {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .framework-section {
+    min-height: 44px;
+    padding: 0.75rem 0.5rem;
+  }
+  
+  .example-question {
+    min-height: 44px;
+    padding: 0.75rem 1rem;
+  }
+  
+  /* 增加点击区域 */
+  .idea-bubble {
+    padding: 1rem;
+  }
+  
+  /* 禁用hover效果，使用active代替 */
+  .idea-action-btn:hover,
+  .zoom-btn:hover,
+  .add-idea-btn:hover,
+  .send-btn:hover,
+  .tool-btn:hover {
+    transform: none;
+  }
+  
+  .idea-action-btn:active,
+  .zoom-btn:active,
+  .add-idea-btn:active,
+  .send-btn:active,
+  .tool-btn:active {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  
+  /* 优化输入框 */
+  .idea-input,
+  .chat-input,
+  .editor-textarea {
+    font-size: 16px; /* 防止iOS自动缩放 */
+  }
+  
+  /* 优化滚动 */
+  .chat-messages,
+  .writing-framework,
+  .canvas-container {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+}
+
+/* 防止双击缩放 */
+@media (max-width: 600px) {
+  * {
+    touch-action: manipulation;
+  }
+  
+  input,
+  textarea,
+  select {
+    font-size: 16px !important; /* 防止iOS自动缩放 */
   }
 }
 
