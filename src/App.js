@@ -31,6 +31,12 @@ function App() {
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
   const [canvasDragStart, setCanvasDragStart] = useState({ x: 0, y: 0 });
   
+  // 双指缩放
+  const [isPinching, setIsPinching] = useState(false);
+  const [pinchStartDistance, setPinchStartDistance] = useState(0);
+  const [pinchStartZoom, setPinchStartZoom] = useState(1);
+  const [pinchCenter, setPinchCenter] = useState({ x: 0, y: 0 });
+  
   
   // 写作内容分析和新idea建议
   const [previousWritings, setPreviousWritings] = useState({}); // 存储每个idea的写作内容历史
@@ -39,10 +45,12 @@ function App() {
   const [isFullscreen, setIsFullscreen] = useState(false); // 全屏状态
   const [editingAnalysisId, setEditingAnalysisId] = useState(null); // 正在编辑分析的idea ID
   const [editingAnalysisText, setEditingAnalysisText] = useState(''); // 编辑中的分析文本
+  const [isChatOpen, setIsChatOpen] = useState(false); // 移动端聊天浮层状态
   
   // 引用
   const canvasRef = useRef(null);
   const chatEndRef = useRef(null);
+  const ideaRefs = useRef({}); // 存储每个idea的DOM引用
 
   // 登录处理函数
   const handleLogin = (loginData) => {
@@ -274,8 +282,51 @@ function App() {
   };
 
   // 分析新idea的影响因素
+  // 获取父节点链的所有信息
+  const getParentChainInfo = (ideaId) => {
+    const chain = [];
+    let currentId = ideaId;
+    
+    while (currentId) {
+      const currentIdea = ideas.find(i => i.id === currentId);
+      if (!currentIdea) break;
+      
+      chain.push({
+        id: currentIdea.id,
+        text: currentIdea.text,
+        writings: ideaWritings[currentId] || {},
+        connectionType: currentIdea.connectionType
+      });
+      
+      currentId = currentIdea.parentId;
+    }
+    
+    return chain.reverse(); // 反转，从根节点到直接父节点
+  };
+
   const analyzeNewIdea = async (idea) => {
     setIsAnalyzingWriting(true);
+    
+    // 获取整个父节点链的信息
+    const parentChain = idea.parentId ? getParentChainInfo(idea.parentId) : [];
+    const directParent = parentChain[parentChain.length - 1] || null;
+    
+    // 构建父节点链的文本描述
+    const parentChainText = parentChain.map(node => node.text).filter(Boolean).join(' → ');
+    
+    // 合并所有父节点的写作内容
+    const allParentWritings = {};
+    parentChain.forEach(node => {
+      Object.keys(node.writings || {}).forEach(key => {
+        if (node.writings[key] && node.writings[key].trim()) {
+          allParentWritings[key] = (allParentWritings[key] || '') + node.writings[key] + '\n';
+        }
+      });
+    });
+    
+    const previousIdeaText = directParent?.text || '';
+    const previousWritings = allParentWritings;
+    const currentWritings = ideaWritings[idea.id] || {};
     
     try {
       const response = await fetch('http://localhost:5050/api/analyze-writing', {
@@ -286,9 +337,16 @@ function App() {
         body: JSON.stringify({
           context: {
             ideaText: idea.text,
-            previousWritings: {},
-            currentWritings: {},
-            currentSection: '新想法分析'
+            previousIdeaText: previousIdeaText,
+            parentChainText: parentChainText, // 整个父节点链的文本
+            parentChain: parentChain.map(node => ({
+              text: node.text,
+              connectionType: node.connectionType
+            })), // 父节点链的详细信息
+            previousWritings: previousWritings,
+            currentWritings: currentWritings,
+            currentSection: idea.connectionType === 'refine' ? '细化想法' : idea.connectionType === 'branch' ? '分支想法' : '新想法分析',
+            connectionType: idea.connectionType || null
           }
         }),
       });
@@ -307,11 +365,11 @@ function App() {
           }
         });
         
-        // 同时在聊天框中输出分析结果并询问是否需要修改
+        // 同时在聊天框中输出分析结果
         const analysisMessage = {
           id: Date.now(),
           type: 'ai',
-          content: `📊 影响因素分析完成\n\n${content}\n\n💡 你觉得这个分析准确吗？有什么需要修改或补充的地方吗？`,
+          content: `📊 影响因素分析完成\n\n${content}`,
           timestamp: new Date(),
           isAnalysis: true // 标记为分析消息
         };
@@ -504,36 +562,41 @@ function App() {
     }
   };
 
-  // 开始拖动idea
-  const handleIdeaMouseDown = (id, e) => {
+  // 开始拖动idea（触摸）
+  const handleIdeaTouchStart = (id, e) => {
     if (editingIdeaId || e.target.closest('.remove-idea') || e.target.closest('.idea-action-btn')) return;
+    // 只处理单点触摸
+    if (e.touches.length !== 1) return;
     e.stopPropagation();
     const idea = ideas.find(i => i.id === id);
     const rect = canvasRef.current.getBoundingClientRect();
+    const touch = e.touches[0];
     setDraggingIdeaId(id);
-    // 计算鼠标相对于idea框左上角的偏移量
+    // 计算触摸点相对于idea框左上角的偏移量
     setDragOffset({
-      x: e.clientX - rect.left - idea.x,
-      y: e.clientY - rect.top - idea.y
+      x: touch.clientX - rect.left - idea.x,
+      y: touch.clientY - rect.top - idea.y
     });
   };
 
-  // 拖动idea
-  const handleMouseMove = (e) => {
-    if (draggingIdeaId && canvasRef.current) {
+  // 拖动idea（触摸移动）
+  const handleTouchMove = (e) => {
+    if (draggingIdeaId && canvasRef.current && e.touches.length === 1) {
+      const touch = e.touches[0];
       const rect = canvasRef.current.getBoundingClientRect();
-      // 计算鼠标在canvas中的位置，减去初始偏移量，得到idea的新位置
-      const newX = Math.max(0, Math.min(rect.width - 220, e.clientX - rect.left - dragOffset.x));
-      const newY = Math.max(0, Math.min(rect.height - 100, e.clientY - rect.top - dragOffset.y));
+      // 计算触摸点在canvas中的位置，减去初始偏移量，得到idea的新位置
+      const newX = Math.max(0, Math.min(rect.width - 220, touch.clientX - rect.left - dragOffset.x));
+      const newY = Math.max(0, Math.min(rect.height - 100, touch.clientY - rect.top - dragOffset.y));
       
       setIdeas(ideas.map(idea =>
         idea.id === draggingIdeaId ? { ...idea, x: newX, y: newY } : idea
       ));
+      e.preventDefault();
     }
   };
 
-  // 停止拖动
-  const handleMouseUp = () => {
+  // 停止拖动（触摸结束）
+  const handleTouchEnd = () => {
     setDraggingIdeaId(null);
   };
 
@@ -551,21 +614,140 @@ function App() {
     setCanvasOffset({ x: 0, y: 0 });
   };
 
-  // 画布拖拽处理
-  const handleCanvasMouseDown = (e) => {
-    // 只有在点击空白区域（不是想法气泡）时才开始拖拽
-    const isIdeaBubble = e.target.closest('.idea-bubble');
+  // 检查是否应该拖拽画布
+  const shouldDragCanvas = (target) => {
+    const isIdeaBubble = target.closest('.idea-bubble');
+    const isButton = target.closest('button');
+    const isInput = target.closest('input');
+    const isTextarea = target.closest('textarea');
+    const isSelect = target.closest('select');
     
-    if (!isIdeaBubble) {
+    return !isIdeaBubble && !isButton && !isInput && !isTextarea && !isSelect;
+  };
+
+  // 计算两个触摸点之间的距离
+  const getTouchDistance = (touch1, touch2) => {
+    const dx = touch2.clientX - touch1.clientX;
+    const dy = touch2.clientY - touch1.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  // 计算两个触摸点的中点
+  const getTouchCenter = (touch1, touch2) => {
+    return {
+      x: (touch1.clientX + touch2.clientX) / 2,
+      y: (touch1.clientY + touch2.clientY) / 2
+    };
+  };
+
+  // 画布拖拽处理（触摸）
+  const handleCanvasTouchStart = (e) => {
+    if (shouldDragCanvas(e.target)) {
+      if (e.touches.length === 2) {
+        // 双指缩放
+        setIsPinching(true);
+        setIsDraggingCanvas(false);
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        const distance = getTouchDistance(touch1, touch2);
+        const center = getTouchCenter(touch1, touch2);
+        
+        setPinchStartDistance(distance);
+        setPinchStartZoom(zoomLevel);
+        setPinchCenter(center);
+        e.preventDefault();
+        e.stopPropagation();
+      } else if (e.touches.length === 1) {
+        // 单指拖拽
+        setIsDraggingCanvas(true);
+        setIsPinching(false);
+        const touch = e.touches[0];
+        setCanvasDragStart({
+          x: touch.clientX - canvasOffset.x,
+          y: touch.clientY - canvasOffset.y
+        });
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }
+  };
+
+  // 画布拖拽移动（触摸）
+  const handleCanvasTouchMove = (e) => {
+    if (isPinching && e.touches.length === 2) {
+      // 双指缩放
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const currentDistance = getTouchDistance(touch1, touch2);
+      const currentCenter = getTouchCenter(touch1, touch2);
+      
+      if (pinchStartDistance > 0 && canvasRef.current) {
+        // 计算缩放比例
+        const scale = currentDistance / pinchStartDistance;
+        const newZoom = Math.max(0.5, Math.min(3, pinchStartZoom * scale));
+        
+        // 计算缩放中心点相对于画布的坐标
+        const rect = canvasRef.current.getBoundingClientRect();
+        const centerX = currentCenter.x - rect.left;
+        const centerY = currentCenter.y - rect.top;
+        
+        // 调整画布偏移，使缩放中心点保持不变
+        // 使用函数式更新确保使用最新的状态值
+        setZoomLevel(newZoom);
+        setCanvasOffset(prevOffset => {
+          const zoomChange = newZoom / pinchStartZoom;
+          return {
+            x: centerX - (centerX - prevOffset.x) * zoomChange,
+            y: centerY - (centerY - prevOffset.y) * zoomChange
+          };
+        });
+      }
+      e.preventDefault();
+    } else if (isDraggingCanvas && e.touches.length === 1) {
+      // 单指拖拽
+      const touch = e.touches[0];
+      const newOffset = {
+        x: touch.clientX - canvasDragStart.x,
+        y: touch.clientY - canvasDragStart.y
+      };
+      setCanvasOffset(newOffset);
+      e.preventDefault();
+    }
+  };
+
+  // 画布拖拽结束（触摸）
+  const handleCanvasTouchEnd = (e) => {
+    if (e.touches.length === 0) {
+      // 所有手指都离开
+      setIsDraggingCanvas(false);
+      setIsPinching(false);
+      setPinchStartDistance(0);
+    } else if (e.touches.length === 1 && isPinching) {
+      // 从双指变为单指，切换到拖拽模式
+      setIsPinching(false);
+      setIsDraggingCanvas(true);
+      const touch = e.touches[0];
+      setCanvasDragStart({
+        x: touch.clientX - canvasOffset.x,
+        y: touch.clientY - canvasOffset.y
+      });
+    }
+  };
+
+  // 画布拖拽处理（鼠标）
+  const handleCanvasMouseDown = (e) => {
+    if (shouldDragCanvas(e.target) && e.button === 0) { // 只处理左键
       setIsDraggingCanvas(true);
       setCanvasDragStart({
         x: e.clientX - canvasOffset.x,
         y: e.clientY - canvasOffset.y
       });
       e.preventDefault();
+      e.stopPropagation();
     }
   };
 
+  // 画布拖拽移动（鼠标）
   const handleCanvasMouseMove = (e) => {
     if (isDraggingCanvas) {
       const newOffset = {
@@ -573,36 +755,53 @@ function App() {
         y: e.clientY - canvasDragStart.y
       };
       setCanvasOffset(newOffset);
+      e.preventDefault();
     }
   };
 
+  // 画布拖拽结束（鼠标）
   const handleCanvasMouseUp = () => {
     setIsDraggingCanvas(false);
   };
 
-  // 监听鼠标事件
+  // 监听想法气泡拖拽事件（触摸）
   useEffect(() => {
     if (draggingIdeaId) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('touchmove', handleTouchMove, { passive: false });
+      window.addEventListener('touchend', handleTouchEnd);
+      window.addEventListener('touchcancel', handleTouchEnd);
       return () => {
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
+        window.removeEventListener('touchmove', handleTouchMove);
+        window.removeEventListener('touchend', handleTouchEnd);
+        window.removeEventListener('touchcancel', handleTouchEnd);
       };
     }
   }, [draggingIdeaId, ideas, dragOffset]);
 
-  // 监听画布拖拽事件
+  // 监听画布拖拽和缩放事件（触摸和鼠标）
   useEffect(() => {
-    if (isDraggingCanvas) {
-      window.addEventListener('mousemove', handleCanvasMouseMove);
-      window.addEventListener('mouseup', handleCanvasMouseUp);
+    if (isDraggingCanvas || isPinching) {
+      // 触摸事件
+      window.addEventListener('touchmove', handleCanvasTouchMove, { passive: false });
+      window.addEventListener('touchend', handleCanvasTouchEnd);
+      window.addEventListener('touchcancel', handleCanvasTouchEnd);
+      // 鼠标事件（只在拖拽时，不在缩放时）
+      if (isDraggingCanvas) {
+        window.addEventListener('mousemove', handleCanvasMouseMove);
+        window.addEventListener('mouseup', handleCanvasMouseUp);
+      }
+      
       return () => {
-        window.removeEventListener('mousemove', handleCanvasMouseMove);
-        window.removeEventListener('mouseup', handleCanvasMouseUp);
+        window.removeEventListener('touchmove', handleCanvasTouchMove);
+        window.removeEventListener('touchend', handleCanvasTouchEnd);
+        window.removeEventListener('touchcancel', handleCanvasTouchEnd);
+        if (isDraggingCanvas) {
+          window.removeEventListener('mousemove', handleCanvasMouseMove);
+          window.removeEventListener('mouseup', handleCanvasMouseUp);
+        }
       };
     }
-  }, [isDraggingCanvas, canvasDragStart]);
+  }, [isDraggingCanvas, isPinching, canvasDragStart]);
 
   // 获取当前框架项对应的字段名
   const getFieldName = (frameworkId) => {
@@ -906,49 +1105,93 @@ function App() {
                     +
                   </button>
                 </div>
-                 <div className="zoom-controls">
-                   <button className="zoom-btn" onClick={handleZoomOut}>-</button>
-                   <span className="zoom-value">{Math.round(zoomLevel * 100)}%</span>
-                   <button className="zoom-btn" onClick={handleZoomIn}>+</button>
-                   <button className="zoom-btn reset-btn" onClick={handleResetZoom}>⟲</button>
-                   <button className="zoom-btn fullscreen-btn" onClick={toggleFullscreen} title={isFullscreen ? "退出全屏" : "全屏显示"}>
-                     {isFullscreen ? "⤓" : "⤢"}
-                   </button>
-                 </div>
+                <button 
+                  className="chat-toggle-btn" 
+                  onClick={() => setIsChatOpen(true)}
+                  title="打开GPT聊天"
+                >
+                  💬
+                </button>
               </div>
             </div>
             
             <div 
               className="canvas-container" 
               ref={canvasRef}
+              onTouchStart={handleCanvasTouchStart}
               onMouseDown={handleCanvasMouseDown}
-              style={{
-                cursor: isDraggingCanvas ? 'grabbing' : 'grab'
-              }}
             >
               {/* 画布内容容器 */}
               <div 
                 className="canvas-content"
                 style={{
                   transform: `translate(${canvasOffset.x}px, ${canvasOffset.y}px) scale(${zoomLevel})`,
-                  transformOrigin: 'center center',
+                  transformOrigin: '0 0',
                   transition: isDraggingCanvas ? 'none' : 'transform 0.2s ease-out'
                 }}
               >
-                {/* 绘制连接箭头 */}
-                <svg className="connection-svg">
+                {/* 绘制连接箭头 - 计算SVG尺寸以覆盖所有想法 */}
+                {(() => {
+                  // 计算所有想法的边界
+                  const minX = ideas.length > 0 ? Math.min(...ideas.map(i => i.x)) : 0;
+                  const maxX = ideas.length > 0 ? Math.max(...ideas.map(i => i.x + 280)) : 1000;
+                  const minY = ideas.length > 0 ? Math.min(...ideas.map(i => i.y)) : 0;
+                  const maxY = ideas.length > 0 ? Math.max(...ideas.map(i => i.y + 300)) : 1000;
+                  const svgWidth = Math.max(2000, maxX - minX + 400);
+                  const svgHeight = Math.max(2000, maxY - minY + 400);
+                  const svgX = Math.min(0, minX - 200);
+                  const svgY = Math.min(0, minY - 200);
+                  
+                  return (
+                    <svg 
+                      className="connection-svg" 
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        pointerEvents: 'none',
+                        width: '100%',
+                        height: '100%'
+                      }}
+                    >
                 {ideas.map(idea => {
                   if (idea.parentId) {
                     const parentIdea = ideas.find(i => i.id === idea.parentId);
                     if (parentIdea) {
-                      // 计算箭头起点和终点（考虑气泡框的实际宽度和高度）
-                      const bubbleWidth = 200; // 气泡平均宽度
-                      const bubbleHeight = 100; // 气泡平均高度（包含按钮）
+                      // 获取实际卡片尺寸
+                      const getBubbleSize = (ideaId) => {
+                        const element = ideaRefs.current[ideaId];
+                        if (element) {
+                          return { 
+                            width: element.offsetWidth, 
+                            height: element.offsetHeight
+                          };
+                        }
+                        // 如果没有DOM元素，使用默认值
+                        return { width: 200, height: 150 };
+                      };
                       
-                      const startX = parentIdea.x + (idea.connectionType === 'refine' ? bubbleWidth : bubbleWidth / 2);
-                      const startY = parentIdea.y + (idea.connectionType === 'refine' ? bubbleHeight / 2 : bubbleHeight + 5);
-                      const endX = idea.x + (idea.connectionType === 'refine' ? 0 : bubbleWidth / 2);
-                      const endY = idea.y + (idea.connectionType === 'refine' ? bubbleHeight / 2 : -5);
+                      const parentSize = getBubbleSize(parentIdea.id);
+                      const childSize = getBubbleSize(idea.id);
+                      
+                      // 向右（refine）：从父卡片右边到子卡片左边
+                      // 向下（branch）：从父卡片下面到子卡片上面
+                      // 注意：idea.x 和 idea.y 已经是相对于canvas-content的坐标
+                      let startX, startY, endX, endY;
+                      
+                      if (idea.connectionType === 'refine') {
+                        // 向右：从父卡片右边缘到子卡片左边缘
+                        startX = parentIdea.x + parentSize.width;
+                        startY = parentIdea.y + parentSize.height / 2;
+                        endX = idea.x;
+                        endY = idea.y + childSize.height / 2;
+                      } else {
+                        // 向下：从父卡片下边缘到子卡片上边缘
+                        startX = parentIdea.x + parentSize.width / 2;
+                        startY = parentIdea.y + parentSize.height;
+                        endX = idea.x + childSize.width / 2;
+                        endY = idea.y;
+                      }
                       
                       // 创建路径
                       const midX = (startX + endX) / 2;
@@ -993,19 +1236,27 @@ function App() {
                   }
                   return null;
                 })}
-                </svg>
+                    </svg>
+                  );
+                })()}
                 {/* 想法气泡 */}
                 {ideas.map(idea => (
                   <div
                     key={idea.id}
+                    ref={(el) => {
+                      if (el) {
+                        ideaRefs.current[idea.id] = el;
+                      } else {
+                        delete ideaRefs.current[idea.id];
+                      }
+                    }}
                     className={`idea-bubble ${selectedIdeaId === idea.id ? 'selected' : ''} ${editingIdeaId === idea.id ? 'editing' : ''} ${draggingIdeaId === idea.id ? 'dragging' : ''}`}
                     style={{
                       left: idea.x,
                       top: idea.y,
-                      backgroundColor: idea.color,
-                      cursor: draggingIdeaId === idea.id ? 'grabbing' : 'grab'
+                      backgroundColor: idea.color
                     }}
-                  onMouseDown={(e) => handleIdeaMouseDown(idea.id, e)}
+                  onTouchStart={(e) => handleIdeaTouchStart(idea.id, e)}
                   onClick={() => !editingIdeaId && !draggingIdeaId && selectIdea(idea.id)}
                 >
                   <div className="idea-header">
@@ -1042,7 +1293,7 @@ function App() {
                         title={isFullscreen ? "全屏模式下不可用" : "细化想法"}
                         disabled={isFullscreen}
                       >
-                        <span className="action-icon">🔍</span>
+                        <span className="action-icon">→</span>
                         <span className="action-text">细化</span>
                       </button>
                       <button 
@@ -1051,7 +1302,7 @@ function App() {
                         title={isFullscreen ? "全屏模式下不可用" : "分支想法"}
                         disabled={isFullscreen}
                       >
-                        <span className="action-icon">📋</span>
+                        <span className="action-icon">↓</span>
                         <span className="action-text">分支</span>
                       </button>
                     </div>
@@ -1122,71 +1373,38 @@ function App() {
             </div>
           </div>
 
-          {/* 左下：Writing 界面 */}
-          <div className="writing-section">
-            <div className="section-header">
-              <h3>✍️ Writing 工作区</h3>
-              <div className="writing-tools">
-                <span className="selected-idea-indicator">
-                  {selectedIdeaId ? 
-                    `正在编辑: ${ideas.find(i => i.id === selectedIdeaId)?.text}` : 
-                    '请先选择一个想法'}
-                </span>
-                <button className="tool-btn" onClick={saveWriting}>保存</button>
-                <button className="tool-btn" onClick={clearWriting}>清空</button>
-              </div>
-            </div>
-            
-            <div className="writing-content">
-              {/* 左侧：写作框架 */}
-              <div className="writing-framework">
-                <h4>写作框架</h4>
-                {writingFramework.map(section => (
-                  <div 
-                    key={section.id} 
-                    className={`framework-section ${selectedFrameworkId === section.id ? 'active' : ''}`}
-                    onClick={() => setSelectedFrameworkId(section.id)}
-                  >
-                    <label>{section.title}</label>
-                  </div>
-                ))}
-              </div>
-
-              {/* 右侧：写作区域 */}
-              <div className="writing-editor">
-                {selectedIdeaId ? (
-                  <div className="editor-field">
-                    <div className="editor-field-header">
-                      {writingFramework.find(s => s.id === selectedFrameworkId)?.title}
-                    </div>
-                    <textarea
-                      value={ideaWritings[selectedIdeaId]?.[getFieldName(selectedFrameworkId)] || ''}
-                      onChange={(e) => updateIdeaWriting(getFieldName(selectedFrameworkId), e.target.value)}
-                      placeholder={writingFramework.find(s => s.id === selectedFrameworkId)?.placeholder}
-                      className="editor-textarea"
-                    />
-                  </div>
-                ) : (
-                  <div className="empty-editor">
-                    <p>👆 请先在画布上选择一个想法</p>
-                    <p>然后按框架填写内容</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
 
+        {/* 聊天浮层遮罩 */}
+        {isChatOpen && (
+          <div className="chat-overlay" onClick={() => setIsChatOpen(false)}></div>
+        )}
+        
         {/* 右侧：GPT 聊天窗口 */}
-        <div className="chat-section">
+        <div className={`chat-section ${isChatOpen ? 'chat-open' : ''}`}>
           <div className="section-header">
             <h3>🤖 GPT 策略顾问</h3>
             <div className="chat-tools">
-              {selectedIdeaId && selectedFrameworkId && (
-                <span className="current-section-indicator">
-                  {writingFramework.find(f => f.id === selectedFrameworkId)?.title}
-                </span>
+              {selectedIdeaId && (
+                <select 
+                  className="framework-select"
+                  value={selectedFrameworkId}
+                  onChange={(e) => setSelectedFrameworkId(Number(e.target.value))}
+                >
+                  {writingFramework.map(framework => (
+                    <option key={framework.id} value={framework.id}>
+                      {framework.title}
+                    </option>
+                  ))}
+                </select>
               )}
+              <button 
+                className="chat-close-btn mobile-only" 
+                onClick={() => setIsChatOpen(false)}
+                title="关闭聊天"
+              >
+                ×
+              </button>
             </div>
           </div>
           
