@@ -2,6 +2,29 @@
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
+## Requirements
+
+- **Node.js**: >=18.0.0 <19.0.0
+- **npm**: >=9.0.0
+
+### 安装 Node.js 18
+
+推荐使用 nvm 来管理 Node.js 版本：
+
+```bash
+# 安装 Node.js 18
+nvm install 18
+nvm use 18
+
+# 验证版本
+node -v  # 应该显示 v18.x.x
+```
+
+如果项目根目录有 `.nvmrc` 文件，可以直接运行：
+```bash
+nvm use
+```
+
 ## Available Scripts
 
 In the project directory, you can run:

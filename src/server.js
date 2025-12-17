@@ -13,6 +13,7 @@ const DB_NAME = 'bptutor';
 let db;
 let chatRecordsCollection;
 let userStatsCollection;
+let ideasCollection;
 
 // 初始化MongoDB连接
 async function initDatabase() {
@@ -24,11 +25,13 @@ async function initDatabase() {
         db = client.db(DB_NAME);
         chatRecordsCollection = db.collection('chat_records');
         userStatsCollection = db.collection('user_stats');
+        ideasCollection = db.collection('ideas');
         
         // 创建索引
         await chatRecordsCollection.createIndex({ user_id: 1, timestamp: -1 });
         await chatRecordsCollection.createIndex({ task_type: 1 });
         await userStatsCollection.createIndex({ user_id: 1 }, { unique: true });
+        await ideasCollection.createIndex({ user_id: 1 }, { unique: true });
         
         console.log('✅ 数据库集合和索引创建成功');
     } catch (error) {
@@ -46,7 +49,7 @@ app.use(express.json());
 
 // GPT API 配置
 const GPT_API_URL = "https://www.chataiapi.com/v1";
-const GPT_API_KEY = "sk-S5csXKfMoFyqMo9rSwQs0pMhkZp3JsBlIissNSREmhEo0L3j";
+const GPT_API_KEY = "sk-dFBayXlPXhpYCJ0OtxjYqxE2CSwrfC9XtUxARh8Rte3OsaFc";
 
 // 策略代理实现
 class StrategyAgent {
@@ -693,6 +696,88 @@ async function updateUserStats(userId, taskType) {
         console.error('更新用户统计失败:', error);
     }
 }
+
+// 保存用户ideas数据API
+app.post('/api/save-ideas', async (req, res) => {
+    try {
+        const { user_id, ideas, ideaWritings, ideaChats, generatedIdeas, previousWritings, canvasState } = req.body;
+        
+        if (!user_id) {
+            return res.status(400).json({ error: '缺少user_id参数' });
+        }
+        
+        const userData = {
+            user_id,
+            ideas: ideas || [],
+            ideaWritings: ideaWritings || {},
+            ideaChats: ideaChats || {},
+            generatedIdeas: generatedIdeas || {},
+            previousWritings: previousWritings || {},
+            canvasState: canvasState || { zoomLevel: 1, canvasOffset: { x: 0, y: 0 } },
+            updated_at: new Date()
+        };
+        
+        const result = await ideasCollection.updateOne(
+            { user_id },
+            { $set: userData },
+            { upsert: true }
+        );
+        
+        console.log(`✅ 用户 ${user_id} 的ideas数据已保存到MongoDB`);
+        res.json({
+            status: 'success',
+            message: 'ideas数据已保存'
+        });
+        
+    } catch (error) {
+        console.error('保存ideas数据错误:', error);
+        res.status(500).json({ error: '服务器内部错误' });
+    }
+});
+
+// 获取用户ideas数据API
+app.get('/api/load-ideas', async (req, res) => {
+    try {
+        const { user_id } = req.query;
+        
+        if (!user_id) {
+            return res.status(400).json({ error: '缺少user_id参数' });
+        }
+        
+        const userData = await ideasCollection.findOne({ user_id });
+        
+        if (!userData) {
+            return res.json({
+                status: 'success',
+                data: {
+                    ideas: [],
+                    ideaWritings: {},
+                    ideaChats: {},
+                    generatedIdeas: {},
+                    previousWritings: {},
+                    canvasState: { zoomLevel: 1, canvasOffset: { x: 0, y: 0 } }
+                }
+            });
+        }
+        
+        console.log(`📊 从MongoDB返回用户 ${user_id} 的ideas数据`);
+        res.json({
+            status: 'success',
+            data: {
+                ideas: userData.ideas || [],
+                ideaWritings: userData.ideaWritings || {},
+                ideaChats: userData.ideaChats || {},
+                generatedIdeas: userData.generatedIdeas || {},
+                previousWritings: userData.previousWritings || {},
+                canvasState: userData.canvasState || { zoomLevel: 1, canvasOffset: { x: 0, y: 0 } }
+            }
+        });
+        
+    } catch (error) {
+        console.error('获取ideas数据错误:', error);
+        res.status(500).json({ error: '服务器内部错误' });
+    }
+});
 
 // 健康检查API
 app.get('/api/health', (req, res) => {

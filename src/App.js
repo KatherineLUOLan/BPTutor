@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import './App.css';
 import Login from './Login';
 import TaskA from './TaskA';
@@ -201,9 +201,86 @@ function App() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // 保存ideas数据到MongoDB（使用useCallback避免重复创建）
+  const saveIdeasToDatabase = useCallback(async () => {
+    if (!userInfo || !userInfo.username) return;
+    
+    try {
+      const canvasState = {
+        zoomLevel,
+        canvasOffset
+      };
+      
+      await fetch('http://localhost:5050/api/save-ideas', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: userInfo.username,
+          ideas,
+          ideaWritings,
+          ideaChats,
+          generatedIdeas,
+          previousWritings,
+          canvasState
+        }),
+      });
+      
+      console.log('✅ Ideas数据已保存到MongoDB');
+    } catch (error) {
+      console.error('保存ideas数据错误:', error);
+    }
+  }, [userInfo, ideas, ideaWritings, ideaChats, generatedIdeas, previousWritings, zoomLevel, canvasOffset]);
+
+  // 从MongoDB加载ideas数据
+  const loadIdeasFromDatabase = useCallback(async () => {
+    if (!userInfo || !userInfo.username) return;
+    
+    try {
+      const response = await fetch(`http://localhost:5050/api/load-ideas?user_id=${userInfo.username}`);
+      const result = await response.json();
+      
+      if (result.status === 'success' && result.data) {
+        setIdeas(result.data.ideas || []);
+        setIdeaWritings(result.data.ideaWritings || {});
+        setIdeaChats(result.data.ideaChats || {});
+        setGeneratedIdeas(result.data.generatedIdeas || {});
+        setPreviousWritings(result.data.previousWritings || {});
+        
+        if (result.data.canvasState) {
+          setZoomLevel(result.data.canvasState.zoomLevel || 1);
+          setCanvasOffset(result.data.canvasState.canvasOffset || { x: 0, y: 0 });
+        }
+        
+        console.log('✅ Ideas数据已从MongoDB加载');
+      }
+    } catch (error) {
+      console.error('加载ideas数据错误:', error);
+    }
+  }, [userInfo]);
+
   useEffect(() => {
     scrollToBottom();
   }, [ideaChats, selectedIdeaId, selectedFrameworkId]);
+
+  // 登录后加载数据
+  useEffect(() => {
+    if (userInfo && userInfo.username && isLoggedIn) {
+      loadIdeasFromDatabase();
+    }
+  }, [userInfo, isLoggedIn, loadIdeasFromDatabase]);
+
+  // 自动保存ideas数据到MongoDB（防抖）
+  useEffect(() => {
+    if (!userInfo || !userInfo.username || !isLoggedIn) return;
+    
+    const saveTimer = setTimeout(() => {
+      saveIdeasToDatabase();
+    }, 1000); // 1秒后保存，避免频繁保存
+    
+    return () => clearTimeout(saveTimer);
+  }, [ideas, ideaWritings, ideaChats, generatedIdeas, previousWritings, zoomLevel, canvasOffset, userInfo, isLoggedIn, saveIdeasToDatabase]);
 
 
 
@@ -585,8 +662,9 @@ function App() {
       const touch = e.touches[0];
       const rect = canvasRef.current.getBoundingClientRect();
       // 计算触摸点在canvas中的位置，减去初始偏移量，得到idea的新位置
-      const newX = Math.max(0, Math.min(rect.width - 220, touch.clientX - rect.left - dragOffset.x));
-      const newY = Math.max(0, Math.min(rect.height - 100, touch.clientY - rect.top - dragOffset.y));
+      // 移除边界限制，允许无限拖动
+      const newX = touch.clientX - rect.left - dragOffset.x;
+      const newY = touch.clientY - rect.top - dragOffset.y;
       
       setIdeas(ideas.map(idea =>
         idea.id === draggingIdeaId ? { ...idea, x: newX, y: newY } : idea
@@ -978,6 +1056,7 @@ function App() {
       setIsLoading(false);
     }
   };
+
 
   // 保存聊天记录到数据库
   const saveChatToDatabase = async (message, ideaId, frameworkId) => {
