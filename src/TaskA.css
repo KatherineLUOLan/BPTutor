@@ -12,7 +12,7 @@
   background: rgba(255, 255, 255, 0.95);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
-  padding: 1rem 2rem;
+  padding: 0.75rem 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -104,20 +104,143 @@
   overflow: hidden;
 }
 
+/* 文档标签栏 */
+.document-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  background: rgba(255, 255, 255, 0.5);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin: 0.5rem 0.5rem 0 1rem;
+  border-radius: 12px 12px 0 0;
+}
+
+.document-tabs::-webkit-scrollbar {
+  height: 6px;
+}
+
+.document-tabs::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 3px;
+}
+
+.document-tabs::-webkit-scrollbar-thumb {
+  background: rgba(102, 126, 234, 0.3);
+  border-radius: 3px;
+}
+
+.document-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.6rem;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  min-width: 100px;
+  max-width: 150px;
+  position: relative;
+  height: 28px;
+}
+
+.document-tab:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(102, 126, 234, 0.5);
+  transform: translateY(-1px);
+}
+
+.document-tab.active {
+  background: rgba(102, 126, 234, 0.15);
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+.document-name {
+  flex: 1;
+  font-size: 0.8rem;
+  color: #2d3748;
+  font-weight: 500;
+  user-select: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.document-name-input {
+  flex: 1;
+  padding: 0.25rem 0.5rem;
+  border: 2px solid #667eea;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  color: #2d3748;
+  background: white;
+  outline: none;
+  min-width: 100px;
+}
+
+.document-close-btn {
+  background: rgba(229, 62, 62, 0.1);
+  border: 1px solid rgba(229, 62, 62, 0.3);
+  color: #e53e3e;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  transition: all 0.2s ease;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.document-close-btn:hover {
+  background: rgba(229, 62, 62, 0.2);
+  border-color: #e53e3e;
+  transform: scale(1.1);
+}
+
+.new-document-btn {
+  background: rgba(102, 126, 234, 0.1);
+  border: 2px dashed rgba(102, 126, 234, 0.5);
+  color: #667eea;
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-width: 28px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.new-document-btn:hover {
+  background: rgba(102, 126, 234, 0.2);
+  border-color: #667eea;
+}
+
 /* 左侧写作面板 */
 .writing-panel {
   flex: 1;
   display: flex;
   flex-direction: column;
   background: rgba(255, 255, 255, 0.95);
-  margin: 1rem 0.5rem 1rem 1rem;
-  border-radius: 12px;
+  margin: 0.5rem 0.5rem 0.5rem 1rem;
+  border-radius: 0 0 12px 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   overflow: hidden;
 }
 
 .writing-header {
-  padding: 1rem 1.5rem;
+  padding: 0.75rem 1rem;
   border-bottom: 1px solid #e2e8f0;
   display: flex;
   justify-content: space-between;
@@ -191,7 +314,7 @@
 }
 
 .framework-section {
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.75rem;
   cursor: pointer;
   border-bottom: 1px solid #e2e8f0;
   transition: all 0.2s ease;
@@ -231,7 +354,7 @@
 }
 
 .editor-field-header {
-  padding: 1rem 1.5rem;
+  padding: 0.75rem 1rem;
   background: #f8fafc;
   border-bottom: 1px solid #e2e8f0;
   color: #2d3748;
@@ -239,9 +362,55 @@
   font-weight: 600;
 }
 
+/* 导航栏和文本框之间的 to-do 列表（与 Task B 保持一致：小字、单行） */
+.editor-todo-list {
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem 1rem;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  max-height: 220px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.editor-todo-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  cursor: pointer;
+  font-size: 0.8rem;
+  user-select: none;
+}
+
+.editor-todo-item .editor-todo-text {
+  flex: 1;
+  line-height: 1.35;
+  color: #718096;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.editor-todo-item input[type="checkbox"] {
+  flex-shrink: 0;
+  cursor: pointer;
+  width: 1rem;
+  height: 1rem;
+  accent-color: #667eea;
+}
+
+.editor-todo-item.checked .editor-todo-text {
+  color: #a0aec0;
+  text-decoration: line-through;
+}
+
 .editor-textarea {
   flex: 1;
-  padding: 1.5rem;
+  padding: 1rem;
   border: none;
   outline: none;
   resize: none;
@@ -250,11 +419,7 @@
   color: #2d3748;
   background: white;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-}
-
-.editor-textarea::placeholder {
-  color: #a0aec0;
-  font-style: italic;
+  min-height: 120px;
 }
 
 /* 右侧聊天面板 */
@@ -263,14 +428,14 @@
   display: flex;
   flex-direction: column;
   background: rgba(255, 255, 255, 0.95);
-  margin: 1rem 1rem 1rem 0.5rem;
+  margin: 0.5rem 0.5rem 0.5rem 0.5rem;
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   overflow: hidden;
 }
 
 .chat-header {
-  padding: 1rem 1.5rem;
+  padding: 0.75rem 1rem;
   border-bottom: 1px solid #e2e8f0;
   display: flex;
   justify-content: space-between;
@@ -542,5 +707,109 @@
   .framework-section.active {
     background: #667eea;
     color: white;
+  }
+}
+
+/* 自定义弹窗样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+.modal-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  min-width: 400px;
+  max-width: 500px;
+  animation: modalSlideUp 0.3s ease-out;
+}
+
+.modal-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.modal-header h4 {
+  margin: 0;
+  color: #2d3748;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.modal-content {
+  padding: 1.5rem;
+}
+
+.modal-content p {
+  margin: 0;
+  color: #4a5568;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.modal-actions {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.modal-btn {
+  padding: 0.6rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modal-btn.confirm {
+  background: #667eea;
+  color: white;
+}
+
+.modal-btn.confirm:hover {
+  background: #5568d3;
+  transform: translateY(-1px);
+}
+
+.modal-btn.cancel {
+  background: #e2e8f0;
+  color: #4a5568;
+}
+
+.modal-btn.cancel:hover {
+  background: #cbd5e0;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalSlideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
   }
 }

@@ -3,6 +3,7 @@ import './App.css';
 import Login from './Login';
 import TaskA from './TaskA';
 import AdminPanel from './AdminPanel';
+import config from './config';
 
 function App() {
   // 登录状态管理
@@ -20,6 +21,8 @@ function App() {
   const [selectedFrameworkId, setSelectedFrameworkId] = useState(1); // 当前选中的框架项
   const [editingIdeaId, setEditingIdeaId] = useState(null); // 正在编辑的idea
   const [editingText, setEditingText] = useState(''); // 编辑中的文本
+  const [documentViewIdeaId, setDocumentViewIdeaId] = useState(null); // 正在查看文档的idea ID
+  const [modal, setModal] = useState({ show: false, message: '', type: 'info', onConfirm: null }); // 自定义弹窗状态
   
   // 拖动和缩放
   const [draggingIdeaId, setDraggingIdeaId] = useState(null);
@@ -39,19 +42,132 @@ function App() {
   const [isFullscreen, setIsFullscreen] = useState(false); // 全屏状态
   const [editingAnalysisId, setEditingAnalysisId] = useState(null); // 正在编辑分析的idea ID
   const [editingAnalysisText, setEditingAnalysisText] = useState(''); // 编辑中的分析文本
+  const [rightPanelWidth, setRightPanelWidth] = useState(500); // 右侧面板宽度
+  const [isResizing, setIsResizing] = useState(false); // 是否正在调整大小
+  const [todoChecked, setTodoChecked] = useState({}); // Task B 每个想法、每个板块的 to-do 勾选 { ideaId: { sectionId: boolean[] } }
   
   // 引用
   const canvasRef = useRef(null);
   const chatEndRef = useRef(null);
+  const editorRef = useRef(null);
+  const isComposingRef = useRef(false); // 标记是否正在输入法组合中
+  const isEditingRef = useRef(false); // 标记是否正在编辑中，避免useEffect更新DOM
+  const lastFrameworkIdRef = useRef(null); // 跟踪上次的框架ID
+  const lastDocumentViewIdeaIdRef = useRef(null); // 跟踪上次的想法ID
 
   // 登录处理函数
-  const handleLogin = (loginData) => {
+  const handleLogin = async (loginData) => {
     setUserInfo(loginData);
     setIsLoggedIn(true);
+    
+    // 如果是Task B，加载之前保存的界面状态
+    if (loginData.task === 'taskB') {
+      await loadUserState(loginData.username, 'taskB');
+    }
+  };
+  
+  // 加载用户界面状态
+  const loadUserState = async (userId, taskType) => {
+    try {
+      const response = await fetch(`${config.endpoints.loadState}?user_id=${userId}&task_type=${taskType}`);
+      const data = await response.json();
+      
+      if (data.status === 'success' && data.data) {
+        const state = data.data;
+        
+        // 恢复想法列表
+        if (state.ideas && Array.isArray(state.ideas)) {
+          setIdeas(state.ideas);
+        }
+        
+        // 恢复写作内容
+        if (state.ideaWritings) {
+          setIdeaWritings(state.ideaWritings);
+        }
+        
+        // 恢复聊天记录，需要将timestamp字符串转换为Date对象
+        if (state.ideaChats) {
+          const restoredChats = {};
+          Object.keys(state.ideaChats).forEach(ideaId => {
+            restoredChats[ideaId] = {};
+            Object.keys(state.ideaChats[ideaId]).forEach(frameworkId => {
+              restoredChats[ideaId][frameworkId] = (state.ideaChats[ideaId][frameworkId] || []).map(msg => ({
+                ...msg,
+                timestamp: msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp)
+              }));
+            });
+          });
+          setIdeaChats(restoredChats);
+        }
+        
+        // 恢复选中的想法和框架
+        if (state.selectedIdeaId) {
+          setSelectedIdeaId(state.selectedIdeaId);
+        }
+        if (state.selectedFrameworkId) {
+          setSelectedFrameworkId(state.selectedFrameworkId);
+        }
+        
+        // 恢复文档视图
+        if (state.documentViewIdeaId) {
+          setDocumentViewIdeaId(state.documentViewIdeaId);
+        }
+        
+        // 恢复生成的想法分析
+        if (state.generatedIdeas) {
+          setGeneratedIdeas(state.generatedIdeas);
+        }
+        
+        console.log('✅ 界面状态已恢复');
+      }
+    } catch (error) {
+      console.error('加载界面状态失败:', error);
+    }
+  };
+  
+  // 保存用户界面状态
+  const saveUserState = async () => {
+    if (!userInfo || userInfo.task !== 'taskB') return;
+    
+    try {
+      const state = {
+        ideas,
+        ideaWritings,
+        ideaChats,
+        selectedIdeaId,
+        selectedFrameworkId,
+        documentViewIdeaId,
+        generatedIdeas
+      };
+      
+      const response = await fetch(config.endpoints.saveState, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: userInfo.username,
+          task_type: 'taskB',
+          state
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.status === 'success') {
+        console.log('✅ 界面状态已保存');
+      }
+    } catch (error) {
+      console.error('保存界面状态失败:', error);
+    }
   };
 
   // 登出处理函数
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // 登出前保存一次状态
+    if (userInfo && userInfo.task === 'taskB') {
+      await saveUserState();
+    }
+    
     setIsLoggedIn(false);
     setUserInfo(null);
     // 清空所有数据
@@ -64,120 +180,122 @@ function App() {
     setSelectedFrameworkId(1);
     setEditingIdeaId(null);
     setEditingText('');
+    setDocumentViewIdeaId(null);
+    setGeneratedIdeas({});
   };
 
-  // 写作框架模板
+  // Writing framework template
   const writingFramework = [
     { 
       id: 1, 
-      title: '用户痛点', 
-      placeholder: `🎯 用户痛点分析核心要素：
+      title: 'User Pain Points', 
+      placeholder: `🎯 User pain points – key elements:
 
-• 明确目标用户群体（年龄、职业、收入、行为特征）
-• 识别具体痛点（效率低、成本高、体验差、安全风险等）
-• 量化痛点影响（时间损失、金钱损失、情感困扰）
-• 分析用户当前解决方案的不足`,
+• Target user identification (age, occupation, income, behavior)
+• Specific pain analysis (efficiency, cost, experience, security)
+• Impact (time, money, emotional cost)
+• Gaps in current solutions`,
       examples: [
-        '目标用户群体是谁？他们有什么共同特征？',
-        '用户当前是如何解决这个问题的？',
-        '这个痛点会给用户带来什么损失或困扰？',
-        '用户对解决这个问题的需求有多迫切？'
+        'Who is the target user group? What do they have in common?',
+        'How do users currently solve this problem?',
+        'What does this pain cost or trouble users?',
+        'How urgent is the need to solve it?'
       ]
     },
     { 
       id: 2, 
-      title: '市场分析', 
-      placeholder: `📊 市场分析核心要素：
+      title: 'Market Analysis', 
+      placeholder: `📊 Market analysis – key elements:
 
-• 市场规模分析（TAM/SAM/SOM模型）
-• 市场增长趋势（年复合增长率、驱动因素）
-• 市场细分（按地域、用户群体、应用场景）
-• 市场机会识别（空白市场、新兴需求）`,
+• Market size (TAM/SAM/SOM)
+• Growth trends (CAGR, drivers)
+• Segmentation (region, user group, use case)
+• Opportunities (white space, new demand)`,
       examples: [
-        '目标市场的规模有多大？增长趋势如何？',
-        '市场中存在哪些细分领域和机会？',
-        '当前市场的主要驱动因素是什么？',
-        '有哪些政策或技术趋势会影响市场？'
+        'How large is the market? What are the growth trends?',
+        'What segments and opportunities exist?',
+        'What are the main market drivers?',
+        'What policies or tech trends affect the market?'
       ]
     },
     { 
       id: 3, 
-      title: '产品介绍', 
-      placeholder: `🚀 产品介绍核心要素：
+      title: 'Product Overview', 
+      placeholder: `🚀 Product overview – key elements:
 
-• 产品核心功能（解决什么问题）
-• 产品独特价值（与竞品的差异化）
-• 产品使用场景（何时何地使用）
-• 产品技术特点（创新点、技术优势）`,
+• Core features (what problem, how solved)
+• Unique value vs. competitors
+• Use cases and flow
+• Tech strengths and differentiators`,
       examples: [
-        '产品的核心功能是什么？如何解决用户痛点？',
-        '产品有哪些独特的功能或特点？',
-        '产品能为用户创造什么具体价值？',
-        '产品的使用场景和流程是怎样的？'
+        'What are the core features? How do they address pain points?',
+        'What makes the product unique?',
+        'What concrete value does it create for users?',
+        'What are the main use cases and flows?'
       ]
     },
     { 
       id: 4, 
-      title: '竞争分析', 
-      placeholder: `⚔️ 竞争分析核心要素：
+      title: 'Competitive Analysis', 
+      placeholder: `⚔️ Competitive analysis – key elements:
 
-• 直接竞争对手分析（产品、价格、渠道、营销）
-• 间接竞争对手识别（替代方案）
-• 竞争优势分析（技术、资源、团队、模式）
-• 竞争壁垒构建（专利、数据、网络效应）`,
+• Direct competitors (product, price, channel, marketing)
+• Indirect competitors and substitutes
+• Your advantages (tech, resources, team, model)
+• Moats (IP, data, network effects, brand)`,
       examples: [
-        '主要竞争对手有哪些？他们的优劣势是什么？',
-        '我们的产品与竞品相比有什么差异化优势？',
-        '市场上还有哪些替代方案？',
-        '如何建立竞争壁垒？'
+        'Who are the main competitors? Their strengths and weaknesses?',
+        'How does our product differ from competitors?',
+        'What alternatives exist in the market?',
+        'How do we build defensibility?'
       ]
     },
     { 
       id: 5, 
-      title: '可行性分析', 
-      placeholder: `✅ 可行性分析核心要素：
+      title: 'Feasibility Analysis', 
+      placeholder: `✅ Feasibility – key elements:
 
-• 技术可行性（技术难度、开发周期、技术风险）
-• 运营可行性（团队能力、资源需求、执行难度）
-• 财务可行性（成本结构、收入模式、盈利预测）
-• 法律合规性（政策风险、知识产权、监管要求）`,
+• Technical (difficulty, timeline, risks, roadmap)
+• Operational (team, resources, execution, model)
+• Financial (cost, revenue, projections, cash flow)
+• Legal & compliance (policy, IP, regulation)`,
       examples: [
-        '技术实现的难点和风险在哪里？',
-        '运营模式是否可持续？需要什么资源？',
-        '预期的成本结构和收入来源是什么？',
-        '可能面临哪些法律或监管风险？'
+        'Where are the main technical challenges and risks?',
+        'Is the operating model sustainable? What resources are needed?',
+        'What are the cost structure and revenue sources?',
+        'What legal or regulatory risks exist?'
       ]
     },
     { 
       id: 6, 
-      title: '融资计划', 
-      placeholder: `💰 融资计划核心要素：
+      title: 'Funding Plan', 
+      placeholder: `💰 Funding plan – key elements:
 
-• 融资需求（金额、轮次、时间节点）
-• 资金用途（研发、市场、运营、团队）
-• 估值依据（市场比较法、现金流折现法）
-• 投资回报（退出方式、预期回报率）`,
+• Amount, rounds, timeline
+• Use of funds (R&D, marketing, ops, team, infra)
+• Valuation basis (comps, DCF, user value)
+• Returns and exit (exit routes, expected returns)`,
       examples: [
-        '计划融资多少？分几轮？',
-        '资金主要用在哪些方面？',
-        '预期的估值和投资回报如何？',
-        '有哪些退出机制？'
+        'How much to raise? In how many rounds?',
+        'Where will the funds be used?',
+        'What valuation and returns are expected?',
+        'What exit options are there?'
       ]
     },
     { 
       id: 7, 
-      title: '团队介绍', 
-      placeholder: `👥 团队介绍核心要素：
+      title: 'Team', 
+      placeholder: `👥 Team – key elements:
 
-• 核心团队背景（教育、工作经验、专业技能）
-• 团队互补性（技术、市场、运营、财务）
-• 团队执行力（过往成就、项目经验）
-• 团队发展规划（人才招聘、激励机制）`,
+• Core members (background, experience, expertise)
+• Complementarity (skills, roles, collaboration)
+• Track record (achievements, projects, cases)
+• Hiring and scaling plan`,
       examples: [
-        '核心团队成员有哪些？各自的背景和专长是什么？',
-        '团队在这个领域有什么独特优势？',
-        '团队还缺少什么关键角色？',
-        '如何吸引和留住优秀人才？'
+        'Who are the core team members? Their background and expertise?',
+        'What unique advantages does the team have?',
+        'What key roles are still missing?',
+        'How will you attract and retain talent?'
       ]
     }
   ];
@@ -193,11 +311,70 @@ function App() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // 调整右侧面板宽度
+  const handleResizeStart = (e) => {
+    e.preventDefault();
+    setIsResizing(true);
+  };
+
+  useEffect(() => {
+    const handleResize = (e) => {
+      if (!isResizing) return;
+      
+      const appContent = document.querySelector('.app-content');
+      if (!appContent) return;
+      
+      const rect = appContent.getBoundingClientRect();
+      // 计算右侧面板的宽度：从鼠标位置到app-content右边缘的距离
+      // 减去右侧padding (1rem = 16px)
+      const newWidth = rect.right - e.clientX - 16;
+      
+      // 限制宽度范围：最小300px，最大800px
+      const minWidth = 300;
+      const maxWidth = 800;
+      const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+      
+      setRightPanelWidth(clampedWidth);
+    };
+
+    const handleResizeEnd = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleResize);
+      document.addEventListener('mouseup', handleResizeEnd);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleResize);
+      document.removeEventListener('mouseup', handleResizeEnd);
+      if (!isResizing) {
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    };
+  }, [isResizing]);
+
   useEffect(() => {
     scrollToBottom();
   }, [ideaChats, selectedIdeaId, selectedFrameworkId]);
-
-
+  
+  // 自动保存界面状态
+  useEffect(() => {
+    if (!userInfo || userInfo.task !== 'taskB' || !isLoggedIn) return;
+    
+    saveUserState();
+  }, [ideas, ideaWritings, ideaChats, selectedIdeaId, selectedFrameworkId, documentViewIdeaId, generatedIdeas, userInfo, isLoggedIn]);
+  
+  // 自动保存界面状态
+  useEffect(() => {
+    if (!userInfo || userInfo.task !== 'taskB' || !isLoggedIn) return;
+    
+    saveUserState();
+  }, [ideas, ideaWritings, ideaChats, selectedIdeaId, selectedFrameworkId, documentViewIdeaId, generatedIdeas, userInfo, isLoggedIn]);
 
   // 添加想法到画布
   const addIdea = () => {
@@ -230,6 +407,13 @@ function App() {
           1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: []
         }
       });
+      // 新卡片的 to-do 勾选状态与上一节点（当前选中的卡片）保持一致
+      setTodoChecked(prev => ({
+        ...prev,
+        [newIdea.id]: selectedIdeaId != null && prev[selectedIdeaId]
+          ? JSON.parse(JSON.stringify(prev[selectedIdeaId]))
+          : {}
+      }));
       setCurrentIdea('');
       // 自动选中新添加的idea
       setSelectedIdeaId(newIdea.id);
@@ -273,12 +457,57 @@ function App() {
     setEditingAnalysisText('');
   };
 
+  // 递归获取所有父节点（整个链路）
+  const getAllParentIdeas = (ideaId, allIdeas) => {
+    const parentChain = [];
+    let currentId = ideaId;
+    
+    while (currentId) {
+      const currentIdea = allIdeas.find(i => i.id === currentId);
+      if (!currentIdea || !currentIdea.parentId) break;
+      
+      const parentIdea = allIdeas.find(i => i.id === currentIdea.parentId);
+      if (parentIdea) {
+        parentChain.push(parentIdea);
+        currentId = parentIdea.id;
+      } else {
+        break;
+      }
+    }
+    
+    return parentChain;
+  };
+
   // 分析新idea的影响因素
   const analyzeNewIdea = async (idea) => {
+    // 立即显示分析区域，标记为正在生成中
+    setGeneratedIdeas({
+      ...generatedIdeas,
+      [idea.id]: {
+        analysis: '',
+        isGenerating: true,
+        timestamp: new Date()
+      }
+    });
+    
     setIsAnalyzingWriting(true);
     
     try {
-      const response = await fetch('http://localhost:5050/api/analyze-writing', {
+      // 获取所有父节点（整个链路）
+      const allParentIdeas = getAllParentIdeas(idea.id, ideas);
+      
+      // 收集所有父节点的信息
+      const parentIdeasInfo = allParentIdeas.map(parent => ({
+        id: parent.id,
+        text: parent.text,
+        writings: ideaWritings[parent.id] || {}
+      }));
+      
+      // 获取直接父节点（用于兼容性）
+      const directParentIdea = idea.parentId ? ideas.find(i => i.id === idea.parentId) : null;
+      const directParentWritings = directParentIdea ? (ideaWritings[idea.parentId] || {}) : {};
+      
+      const response = await fetch(config.endpoints.analyzeWriting, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -286,9 +515,13 @@ function App() {
         body: JSON.stringify({
           context: {
             ideaText: idea.text,
-            previousWritings: {},
-            currentWritings: {},
-            currentSection: '新想法分析'
+            previousIdeaText: directParentIdea ? directParentIdea.text : null,
+            previousWritings: directParentWritings,
+            allParentIdeas: parentIdeasInfo, // 所有父节点信息
+            currentWritings: ideaWritings[idea.id] || {},
+            currentSection: '新想法分析',
+            connectionType: idea.connectionType || null,
+            isRefine: idea.connectionType === 'refine' || idea.connectionType === 'branch'
           }
         }),
       });
@@ -303,6 +536,7 @@ function App() {
           ...generatedIdeas,
           [idea.id]: {
             analysis: content,
+            isGenerating: false,
             timestamp: new Date()
           }
         });
@@ -311,7 +545,7 @@ function App() {
         const analysisMessage = {
           id: Date.now(),
           type: 'ai',
-          content: `📊 影响因素分析完成\n\n${content}\n\n💡 你觉得这个分析准确吗？有什么需要修改或补充的地方吗？`,
+          content: `${content}\n\n💡 Does this analysis look accurate? Anything to change or add?`,
           timestamp: new Date(),
           isAnalysis: true // 标记为分析消息
         };
@@ -337,9 +571,17 @@ function App() {
     }
   };
 
-  // 选择想法
-  const selectIdea = (id) => {
+  // 选择想法 - 点击后显示文档
+  const selectIdea = (id, e) => {
+    if (editingIdeaId || draggingIdeaId) return;
+    
+    // 如果已经显示了这个想法的文档，不做任何操作（不能通过点击卡片关闭）
+    if (documentViewIdeaId === id) {
+      return;
+    }
+    
     setSelectedIdeaId(id);
+    setDocumentViewIdeaId(id);
   };
 
   // 删除想法
@@ -358,19 +600,27 @@ function App() {
     if (selectedIdeaId === id) {
       setSelectedIdeaId(null);
     }
+    // 如果删除的是正在查看文档的idea，关闭文档
+    if (documentViewIdeaId === id) {
+      setDocumentViewIdeaId(null);
+    }
   };
 
-  // 复制想法（分支）- 纵向新增，清空所有内容
+  // 替换想法（分支）- 纵向新增，继承点击卡片的上一个节点内容，并复制到上一个节点的聊天记录
+  // 如果点击的是第一个节点（没有 parentId），则新卡片为空白
   const duplicateIdea = (id, e) => {
     e.stopPropagation();
     const originalIdea = ideas.find(idea => idea.id === id);
     if (!originalIdea) return;
     
+    // 判断是否是第一个节点（没有 parentId）
+    const isFirstNode = !originalIdea.parentId;
+    
     const newIdea = {
       id: Date.now(),
       text: '',
       x: originalIdea.x,
-      y: originalIdea.y + 200, // 在下方，进一步增加间距
+      y: originalIdea.y + 350, // 在下方，增加间距避免重叠（考虑卡片高度和认知分析区域）
       color: `hsl(${Math.random() * 60 + 180}, 30%, 85%)`,
       parentId: id,
       connectionType: 'branch' // 分支类型
@@ -378,27 +628,75 @@ function App() {
     
     setIdeas([...ideas, newIdea]);
     
-    // 清空写作内容（新分支从头开始）
-    setIdeaWritings({
-      ...ideaWritings,
-      [newIdea.id]: {
-        userPainPoints: '',
-        marketAnalysis: '',
-        productIntro: '',
-        competitiveAnalysis: '',
-        feasibilityAnalysis: '',
-        fundingPlan: '',
-        teamIntro: ''
-      }
-    });
-    
-    // 清空聊天记录（新分支从头开始）
-    setIdeaChats({
-      ...ideaChats,
-      [newIdea.id]: {
-        1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: []
-      }
-    });
+    if (isFirstNode) {
+      // 第一个节点的纵向：新卡片为空白
+      setIdeaWritings({
+        ...ideaWritings,
+        [newIdea.id]: {
+          userPainPoints: '',
+          marketAnalysis: '',
+          productIntro: '',
+          competitiveAnalysis: '',
+          feasibilityAnalysis: '',
+          fundingPlan: '',
+          teamIntro: ''
+        }
+      });
+      
+      // 清空聊天记录
+      setIdeaChats({
+        ...ideaChats,
+        [newIdea.id]: {
+          1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: []
+        }
+      });
+      
+      // to-do 为空
+      setTodoChecked(prev => ({
+        ...prev,
+        [newIdea.id]: {}
+      }));
+    } else {
+      // 非第一个节点：继承上一个节点（parentId）的内容和聊天记录
+      const previousNodeId = originalIdea.parentId;
+      
+      // 继承上一个节点的写作内容
+      setIdeaWritings({
+        ...ideaWritings,
+        [newIdea.id]: ideaWritings[previousNodeId]
+          ? { ...ideaWritings[previousNodeId] }
+          : {
+              userPainPoints: '',
+              marketAnalysis: '',
+              productIntro: '',
+              competitiveAnalysis: '',
+              feasibilityAnalysis: '',
+              fundingPlan: '',
+              teamIntro: ''
+            }
+      });
+      
+      // 复制到上一个节点的聊天记录（深度复制避免引用问题）
+      const previousChats = ideaChats[previousNodeId] || { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [] };
+      setIdeaChats({
+        ...ideaChats,
+        [newIdea.id]: {
+          1: (previousChats[1] || []).map(msg => ({ ...msg })),
+          2: (previousChats[2] || []).map(msg => ({ ...msg })),
+          3: (previousChats[3] || []).map(msg => ({ ...msg })),
+          4: (previousChats[4] || []).map(msg => ({ ...msg })),
+          5: (previousChats[5] || []).map(msg => ({ ...msg })),
+          6: (previousChats[6] || []).map(msg => ({ ...msg })),
+          7: (previousChats[7] || []).map(msg => ({ ...msg }))
+        }
+      });
+      
+      // 纵向分支：to-do 勾选状态与上一个节点保持一致
+      setTodoChecked(prev => ({
+        ...prev,
+        [newIdea.id]: prev[previousNodeId] ? JSON.parse(JSON.stringify(prev[previousNodeId])) : {}
+      }));
+    }
     
     // 进入编辑模式
     setEditingIdeaId(newIdea.id);
@@ -446,6 +744,11 @@ function App() {
         7: (parentChats[7] || []).map(msg => ({ ...msg }))
       }
     });
+    // 细化出的新卡片：to-do 勾选状态与父节点保持一致
+    setTodoChecked(prev => ({
+      ...prev,
+      [newIdea.id]: prev[id] ? JSON.parse(JSON.stringify(prev[id])) : {}
+    }));
     
     // 进入编辑模式
     setEditingIdeaId(newIdea.id);
@@ -463,10 +766,7 @@ function App() {
       
       // 检查是否是新建的idea（通过细化或分支创建的），如果是则分析
       if (updatedIdea && (updatedIdea.parentId || updatedIdea.connectionType === 'refine' || updatedIdea.connectionType === 'branch')) {
-        // 延迟分析，确保状态已更新
-        setTimeout(() => {
-          analyzeNewIdea(updatedIdea);
-        }, 100);
+        analyzeNewIdea(updatedIdea);
       }
     } else {
       // 如果没有输入内容，删除这个idea
@@ -502,6 +802,10 @@ function App() {
     if (selectedIdeaId === id) {
       setSelectedIdeaId(null);
     }
+    // 如果删除的是正在查看文档的idea，关闭文档
+    if (documentViewIdeaId === id) {
+      setDocumentViewIdeaId(null);
+    }
   };
 
   // 开始拖动idea
@@ -509,6 +813,7 @@ function App() {
     if (editingIdeaId || e.target.closest('.remove-idea') || e.target.closest('.idea-action-btn')) return;
     e.stopPropagation();
     const idea = ideas.find(i => i.id === id);
+    if (!idea) return;
     const rect = canvasRef.current.getBoundingClientRect();
     setDraggingIdeaId(id);
     // 计算鼠标相对于idea框左上角的偏移量
@@ -553,6 +858,12 @@ function App() {
 
   // 画布拖拽处理
   const handleCanvasMouseDown = (e) => {
+    // 检查是否点击了文档区域
+    const isDocument = e.target.closest('.idea-document');
+    if (isDocument) {
+      return; // 如果点击了文档，不处理画布拖拽
+    }
+    
     // 只有在点击空白区域（不是想法气泡）时才开始拖拽
     const isIdeaBubble = e.target.closest('.idea-bubble');
     
@@ -618,6 +929,49 @@ function App() {
     return fieldMap[frameworkId];
   };
 
+  // 从 placeholder 文本解析出 to-do 列表项（以 • 开头的行）
+  const getTodoItemsFromPlaceholder = (placeholderText) => {
+    if (!placeholderText) return [];
+    return placeholderText
+      .split(/\n/)
+      .map(line => line.trim())
+      .filter(line => line.startsWith('•') || line.startsWith('*'))
+      .map(line => line.replace(/^[•*]\s*/, '').trim())
+      .filter(Boolean);
+  };
+
+  // 获取当前板块的 to-do 项
+  const getCurrentTodoItems = () => {
+    const section = writingFramework.find(s => s.id === selectedFrameworkId);
+    return section ? getTodoItemsFromPlaceholder(section.placeholder) : [];
+  };
+
+  // 获取当前想法、当前板块的勾选状态数组
+  const getTodoCheckedList = () => {
+    const ideaId = documentViewIdeaId;
+    const sectionId = selectedFrameworkId;
+    if (!ideaId) return [];
+    const byIdea = todoChecked[ideaId] || {};
+    return byIdea[sectionId] || [];
+  };
+
+  // 切换某一项的勾选
+  const toggleTodoItem = (index) => {
+    const ideaId = documentViewIdeaId;
+    const sectionId = selectedFrameworkId;
+    if (ideaId == null) return;
+    const items = getCurrentTodoItems();
+    const byIdea = todoChecked[ideaId] || {};
+    const list = byIdea[sectionId] || items.map(() => false);
+    const newList = [...list];
+    while (newList.length < items.length) newList.push(false);
+    newList[index] = !newList[index];
+    setTodoChecked({
+      ...todoChecked,
+      [ideaId]: { ...byIdea, [sectionId]: newList }
+    });
+  };
+
   // 更新当前idea的写作内容
   const updateIdeaWriting = (field, value) => {
     if (!selectedIdeaId) return;
@@ -649,7 +1003,12 @@ function App() {
   // 保存写作内容
   const saveWriting = () => {
     if (!selectedIdeaId) {
-      alert('请先选择一个想法');
+      setModal({
+        show: true,
+        message: 'Please select an idea first',
+        type: 'info',
+        onConfirm: null
+      });
       return;
     }
     const selectedIdea = ideas.find(idea => idea.id === selectedIdeaId);
@@ -658,28 +1017,58 @@ function App() {
       idea: selectedIdea?.text,
       writing: writing
     });
-    alert(`已保存 "${selectedIdea?.text}" 的写作内容！`);
+    setModal({
+      show: true,
+      message: `已保存 "${selectedIdea?.text}" 的写作内容！`,
+      type: 'success',
+      onConfirm: null
+    });
   };
 
   // 清空当前写作
   const clearWriting = () => {
     if (!selectedIdeaId) {
-      alert('请先选择一个想法');
+      setModal({
+        show: true,
+        message: 'Please select an idea first',
+        type: 'info',
+        onConfirm: null
+      });
       return;
     }
-    if (window.confirm('确定要清空当前写作内容吗？')) {
-      setIdeaWritings({
-        ...ideaWritings,
-        [selectedIdeaId]: {
-          userPainPoints: '',
-          marketAnalysis: '',
-          productIntro: '',
-          competitiveAnalysis: '',
-          feasibilityAnalysis: '',
-          fundingPlan: '',
-          teamIntro: ''
-        }
-      });
+    setModal({
+      show: true,
+      message: 'Clear current writing content?',
+      type: 'confirm',
+      onConfirm: () => {
+        setIdeaWritings({
+          ...ideaWritings,
+          [selectedIdeaId]: {
+            userPainPoints: '',
+            marketAnalysis: '',
+            productIntro: '',
+            competitiveAnalysis: '',
+            feasibilityAnalysis: '',
+            fundingPlan: '',
+            teamIntro: ''
+          }
+        });
+        setModal({ show: false, message: '', type: 'info', onConfirm: null });
+      }
+    });
+  };
+  
+  // 关闭弹窗
+  const closeModal = () => {
+    setModal({ show: false, message: '', type: 'info', onConfirm: null });
+  };
+  
+  // 确认弹窗操作
+  const confirmModal = () => {
+    if (modal.onConfirm) {
+      modal.onConfirm();
+    } else {
+      closeModal();
     }
   };
 
@@ -718,7 +1107,7 @@ function App() {
       const selectedIdea = ideas.find(i => i.id === selectedIdeaId);
       const currentFramework = writingFramework.find(f => f.id === selectedFrameworkId);
       
-      const response = await fetch('http://localhost:5050/api/strategy', {
+      const response = await fetch(config.endpoints.strategy, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -735,9 +1124,16 @@ function App() {
         }),
       });
 
-      const data = await response.json();
-      
-      if (data.status === 'success') {
+      const raw = await response.text();
+      let data;
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch (_) {
+        data = { error: response.statusText || 'Server returned an error' };
+      }
+      const backendError = data.error || (response.ok ? null : (response.statusText || 'Request failed'));
+
+      if (response.ok && data.status === 'success') {
         const aiMessage = {
           id: Date.now() + 1,
           type: 'ai',
@@ -757,14 +1153,15 @@ function App() {
         // 保存AI回复到数据库
         saveChatToDatabase(aiMessage, selectedIdeaId, selectedFrameworkId);
       } else {
-        throw new Error(data.error || '请求失败');
+        throw new Error(backendError || 'Request failed');
       }
     } catch (error) {
       console.error('聊天错误:', error);
+      const displayError = (error && error.message) ? error.message : 'Service temporarily unavailable. Please try again later.';
       const errorMessage = {
         id: Date.now() + 1,
         type: 'ai',
-        content: '抱歉，服务暂时不可用，请稍后重试。',
+        content: displayError,
         timestamp: new Date()
       };
       
@@ -790,15 +1187,15 @@ function App() {
         user_id: userInfo.username,
         task_type: 'taskB',
         idea_id: ideaId,
-        idea_name: idea?.text || '未命名想法',
+        idea_name: idea?.text || 'Untitled idea',
         section_id: frameworkId,
-        section_name: framework?.title || '未知板块',
+        section_name: framework?.title || 'Unknown section',
         message_type: message.type,
         content: message.content.substring(0, 50) + '...',
         timestamp: message.timestamp
       });
       
-      const response = await fetch('http://localhost:5050/api/save-chat', {
+      const response = await fetch(config.endpoints.saveChat, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -807,9 +1204,9 @@ function App() {
           user_id: userInfo.username,
           task_type: 'taskB',
           idea_id: ideaId,
-          idea_name: idea?.text || '未命名想法',
+          idea_name: idea?.text || 'Untitled idea',
           section_id: frameworkId,
-          section_name: framework?.title || '未知板块',
+          section_name: framework?.title || 'Unknown section',
           message_type: message.type,
           content: message.content,
           timestamp: message.timestamp
@@ -862,11 +1259,11 @@ function App() {
     <div className={`app ${isFullscreen ? 'fullscreen-mode' : ''}`}>
       {/* 简化的全屏模式 - 只隐藏侧边栏，保留画布 */}
       <div className="app-header">
-            <h1>商业计划书写作-元反思工作台</h1>
+            <h1>Business Plan – Meta-reflection Workspace</h1>
             <div className="header-right">
               <div className="user-info">
                 <span className="user-name">
-                  {userInfo.role === 'admin' ? '管理员' : `用户 ${userInfo.username}`}
+                  {userInfo.role === 'admin' ? 'Admin' : `User ${userInfo.username}`}
                 </span>
                 {userInfo.role === 'user' && (
                   <span className="user-task">
@@ -875,11 +1272,11 @@ function App() {
                 )}
               </div>
               <button className="logout-btn" onClick={handleLogout}>
-                退出登录
+                Log out
               </button>
               <div className="status-indicator">
                 <span className="status-dot"></span>
-                服务运行中
+                Service running
               </div>
             </div>
           </div>
@@ -887,10 +1284,10 @@ function App() {
           <div className="app-content">
         {/* 左侧区域 */}
         <div className="left-panel">
-          {/* 左上：Idea 迭代画布 */}
+          {/* Idea iteration canvas */}
           <div className="idea-canvas-section">
             <div className="section-header">
-              <h3>💡 Idea 迭代画布</h3>
+              <h3>💡 Idea Iteration Canvas</h3>
               <div className="header-controls">
                 <div className="idea-input-group">
                   <input
@@ -899,7 +1296,7 @@ function App() {
                     value={currentIdea}
                     onChange={(e) => setCurrentIdea(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    placeholder="输入新想法..."
+                    placeholder="Enter new idea..."
                     className="idea-input"
                   />
                   <button onClick={addIdea} className="add-idea-btn">
@@ -911,7 +1308,7 @@ function App() {
                    <span className="zoom-value">{Math.round(zoomLevel * 100)}%</span>
                    <button className="zoom-btn" onClick={handleZoomIn}>+</button>
                    <button className="zoom-btn reset-btn" onClick={handleResetZoom}>⟲</button>
-                   <button className="zoom-btn fullscreen-btn" onClick={toggleFullscreen} title={isFullscreen ? "退出全屏" : "全屏显示"}>
+                   <button className="zoom-btn fullscreen-btn" onClick={toggleFullscreen} title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}>
                      {isFullscreen ? "⤓" : "⤢"}
                    </button>
                  </div>
@@ -1006,7 +1403,12 @@ function App() {
                       cursor: draggingIdeaId === idea.id ? 'grabbing' : 'grab'
                     }}
                   onMouseDown={(e) => handleIdeaMouseDown(idea.id, e)}
-                  onClick={() => !editingIdeaId && !draggingIdeaId && selectIdea(idea.id)}
+                  onDoubleClick={(e) => {
+                    if (!editingIdeaId && !draggingIdeaId) {
+                      e.stopPropagation();
+                      selectIdea(idea.id, e);
+                    }
+                  }}
                 >
                   <div className="idea-header">
                     {editingIdeaId === idea.id ? (
@@ -1023,13 +1425,13 @@ function App() {
                           }
                         }}
                         onBlur={() => saveIdeaEdit(idea.id)}
-                        placeholder="输入新想法..."
+                        placeholder="Enter new idea..."
                         autoFocus
                         onClick={(e) => e.stopPropagation()}
                       />
                     ) : (
                       <>
-                        <span className="idea-text">{idea.text || '空白想法'}</span>
+                        <span className="idea-text">{idea.text || 'Blank idea'}</span>
                         <button className="remove-idea" onClick={(e) => removeIdea(idea.id, e)}>×</button>
                       </>
                     )}
@@ -1039,37 +1441,39 @@ function App() {
                       <button 
                         className={`idea-action-btn refine-btn ${isFullscreen ? 'disabled' : ''}`}
                         onClick={isFullscreen ? undefined : (e) => refineIdea(idea.id, e)}
-                        title={isFullscreen ? "全屏模式下不可用" : "细化想法"}
+                        title={isFullscreen ? "Not available in fullscreen" : "Refine idea"}
                         disabled={isFullscreen}
                       >
                         <span className="action-icon">🔍</span>
-                        <span className="action-text">细化</span>
+                        <span className="action-text">Refine</span>
                       </button>
                       <button 
                         className={`idea-action-btn duplicate-btn ${isFullscreen ? 'disabled' : ''}`}
                         onClick={isFullscreen ? undefined : (e) => duplicateIdea(idea.id, e)}
-                        title={isFullscreen ? "全屏模式下不可用" : "分支想法"}
+                        title={isFullscreen ? "Not available in fullscreen" : "Replace idea"}
                         disabled={isFullscreen}
                       >
-                        <span className="action-icon">📋</span>
-                        <span className="action-text">分支</span>
+                        <span className="action-icon">🔄</span>
+                        <span className="action-text">Replace</span>
                       </button>
                     </div>
                   )}
                   
-                  {/* LLM影响因素分析结果 - 只对新建的idea显示 */}
+                  {/* LLM影响因素分析结果 - 只在保存想法名称后显示 */}
                   {generatedIdeas[idea.id] && (idea.parentId || idea.connectionType === 'refine' || idea.connectionType === 'branch') && (
                     <div className="idea-analysis">
                       <div className="analysis-header">
                         <span className="analysis-icon">🔍</span>
-                        <span className="analysis-text">认知启发分析</span>
-                        <button 
-                          className="edit-analysis-btn" 
-                          onClick={(e) => startEditingAnalysis(idea.id, e)}
-                          title="编辑分析内容"
-                        >
-                          ✏️
-                        </button>
+                        <span className="analysis-text">Cognitive analysis</span>
+                        {generatedIdeas[idea.id] && !generatedIdeas[idea.id].isGenerating && (
+                          <button 
+                            className="edit-analysis-btn" 
+                            onClick={(e) => startEditingAnalysis(idea.id, e)}
+                            title="Edit analysis"
+                          >
+                            ✏️
+                          </button>
+                        )}
                       </div>
                       <div className="analysis-content">
                         {editingAnalysisId === idea.id ? (
@@ -1086,7 +1490,7 @@ function App() {
                                 }
                               }}
                               onBlur={() => saveAnalysisEdit(idea.id)}
-                              placeholder="编辑分析内容..."
+                              placeholder="Edit analysis..."
                               autoFocus
                             />
                             <div className="analysis-edit-controls">
@@ -1094,18 +1498,36 @@ function App() {
                                 className="save-analysis-btn" 
                                 onClick={() => saveAnalysisEdit(idea.id)}
                               >
-                                保存
+                                Save
                               </button>
                               <button 
                                 className="cancel-analysis-btn" 
                                 onClick={() => cancelAnalysisEdit(idea.id)}
                               >
-                                取消
+                                Cancel
                               </button>
                             </div>
                           </div>
-                        ) : (
+                        ) : generatedIdeas[idea.id]?.isGenerating ? (
+                          <div className="analysis-generating">
+                            <div className="generating-indicator">
+                              <span></span>
+                              <span></span>
+                              <span></span>
+                            </div>
+                            <span className="generating-text">Generating...</span>
+                          </div>
+                        ) : generatedIdeas[idea.id]?.analysis ? (
                           generatedIdeas[idea.id].analysis
+                        ) : (
+                          <div className="analysis-generating">
+                            <div className="generating-indicator">
+                              <span></span>
+                              <span></span>
+                              <span></span>
+                            </div>
+                            <span className="generating-text">Generating...</span>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -1114,73 +1536,99 @@ function App() {
               ))}
               {ideas.length === 0 && (
                 <div className="empty-canvas">
-                  <p>点击上方输入框添加想法</p>
-                  <p>点击想法可以在下方编辑内容</p>
+                  <p>Use the input above to add ideas</p>
+                  <p>Click an idea card to view its document</p>
                 </div>
               )}
               </div>
-            </div>
-          </div>
-
-          {/* 左下：Writing 界面 */}
-          <div className="writing-section">
-            <div className="section-header">
-              <h3>✍️ Writing 工作区</h3>
-              <div className="writing-tools">
-                <span className="selected-idea-indicator">
-                  {selectedIdeaId ? 
-                    `正在编辑: ${ideas.find(i => i.id === selectedIdeaId)?.text}` : 
-                    '请先选择一个想法'}
-                </span>
-                <button className="tool-btn" onClick={saveWriting}>保存</button>
-                <button className="tool-btn" onClick={clearWriting}>清空</button>
-              </div>
-            </div>
-            
-            <div className="writing-content">
-              {/* 左侧：写作框架 */}
-              <div className="writing-framework">
-                <h4>写作框架</h4>
-                {writingFramework.map(section => (
-                  <div 
-                    key={section.id} 
-                    className={`framework-section ${selectedFrameworkId === section.id ? 'active' : ''}`}
-                    onClick={() => setSelectedFrameworkId(section.id)}
-                  >
-                    <label>{section.title}</label>
+              
+              {/* 文档显示 - 固定在画布容器内，不跟随画布移动 */}
+              {documentViewIdeaId && (
+                <div 
+                  className="idea-document"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="document-header">
+                    <h4>{ideas.find(i => i.id === documentViewIdeaId)?.text || 'Untitled idea'}</h4>
+                    <button 
+                      className="close-document-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDocumentViewIdeaId(null);
+                        setSelectedIdeaId(null);
+                      }}
+                    >
+                      ×
+                    </button>
                   </div>
-                ))}
-              </div>
-
-              {/* 右侧：写作区域 */}
-              <div className="writing-editor">
-                {selectedIdeaId ? (
-                  <div className="editor-field">
-                    <div className="editor-field-header">
-                      {writingFramework.find(s => s.id === selectedFrameworkId)?.title}
+                  <div className="document-content">
+                    <div className="document-framework">
+                      {writingFramework.map(section => (
+                        <div 
+                          key={section.id} 
+                          className={`document-section ${selectedFrameworkId === section.id ? 'active' : ''}`}
+                          onClick={() => setSelectedFrameworkId(section.id)}
+                        >
+                          <label>{section.title}</label>
+                        </div>
+                      ))}
                     </div>
-                    <textarea
-                      value={ideaWritings[selectedIdeaId]?.[getFieldName(selectedFrameworkId)] || ''}
-                      onChange={(e) => updateIdeaWriting(getFieldName(selectedFrameworkId), e.target.value)}
-                      placeholder={writingFramework.find(s => s.id === selectedFrameworkId)?.placeholder}
-                      className="editor-textarea"
-                    />
+                    <div className="document-editor">
+                      <div className="editor-field">
+                        {/* 直接显示 to-do 列表，无上方标题 */}
+                        <div className="editor-todo-list">
+                          {getCurrentTodoItems().map((item, index) => {
+                            const checkedList = getTodoCheckedList();
+                            const checked = checkedList[index] === true;
+                            return (
+                              <label key={index} className={`editor-todo-item ${checked ? 'checked' : ''}`} onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => toggleTodoItem(index)}
+                                />
+                                <span className="editor-todo-text">{item}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        <textarea
+                          value={ideaWritings[documentViewIdeaId]?.[getFieldName(selectedFrameworkId)] || ''}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            updateIdeaWriting(getFieldName(selectedFrameworkId), e.target.value);
+                          }}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onClick={(e) => e.stopPropagation()}
+                          className="editor-textarea"
+                          placeholder=""
+                        />
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  <div className="empty-editor">
-                    <p>👆 请先在画布上选择一个想法</p>
-                    <p>然后按框架填写内容</p>
+                  <div className="document-footer">
+                    <button className="tool-btn" onClick={clearWriting}>Clear</button>
+                    <button className="tool-btn" onClick={saveWriting}>Save</button>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
+
         </div>
 
+        {/* 分隔条 */}
+        <div 
+          className="resize-handle"
+          onMouseDown={handleResizeStart}
+          style={{ cursor: 'col-resize' }}
+        />
+
         {/* 右侧：GPT 聊天窗口 */}
-        <div className="chat-section">
+        <div className="chat-section" style={{ width: `${rightPanelWidth}px`, flex: `0 0 ${rightPanelWidth}px`, maxWidth: `${rightPanelWidth}px` }}>
           <div className="section-header">
-            <h3>🤖 GPT 策略顾问</h3>
+            <h3>🤖 GPT Strategy Advisor</h3>
             <div className="chat-tools">
               {selectedIdeaId && selectedFrameworkId && (
                 <span className="current-section-indicator">
@@ -1193,14 +1641,14 @@ function App() {
           <div className="chat-messages">
             {!selectedIdeaId ? (
               <div className="empty-chat">
-                <p>👋 你好！我是你的策略顾问</p>
-                <p>请先在画布上选择一个想法</p>
-                <p>然后点击左侧的写作框架板块开始讨论</p>
+                <p>👋 Hi, I'm your strategy advisor</p>
+                <p>Select an idea on the canvas first</p>
+                <p>Then pick a section on the left to start the discussion</p>
               </div>
             ) : getCurrentChatMessages().length === 0 ? (
               <div className="empty-chat">
-                <p>💡 关于「{writingFramework.find(f => f.id === selectedFrameworkId)?.title}」</p>
-                <p>你可以问我以下问题来细化想法：</p>
+                <p>💡 About 「{writingFramework.find(f => f.id === selectedFrameworkId)?.title}」</p>
+                <p>You can ask me these questions to refine your idea:</p>
                 <div className="example-questions">
                   {writingFramework.find(f => f.id === selectedFrameworkId)?.examples.map((example, index) => (
                     <div 
@@ -1220,10 +1668,12 @@ function App() {
                   <div key={message.id} className={`message ${message.type} ${message.isReflection ? 'reflection' : ''} ${message.isAnalysis ? 'analysis' : ''}`}>
                     <div className="message-header">
                       <span className="message-sender">
-                        {message.isReflection ? '💭 反思' : message.isAnalysis ? '📊 分析' : (message.type === 'user' ? '你' : 'GPT')}
+                        {message.isReflection ? '💭 Reflection' : message.isAnalysis ? '📊 Analysis' : (message.type === 'user' ? 'You' : 'GPT')}
                       </span>
                       <span className="message-time">
-                        {message.timestamp.toLocaleTimeString()}
+                        {message.timestamp instanceof Date 
+                          ? message.timestamp.toLocaleTimeString() 
+                          : new Date(message.timestamp).toLocaleTimeString()}
                       </span>
                     </div>
                     <div className="message-content">
@@ -1256,7 +1706,7 @@ function App() {
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="输入你的问题或想法..."
+              placeholder="Enter your question or idea..."
               className="chat-input"
               rows="3"
             />
@@ -1266,12 +1716,39 @@ function App() {
                 className="send-btn"
                 disabled={isLoading || !chatInput.trim()}
               >
-                {isLoading ? '发送中...' : '发送'}
+                {isLoading ? 'Sending...' : 'Send'}
               </button>
             </div>
           </div>
         </div>
       </div>
+      
+      {/* 自定义弹窗 */}
+      {modal.show && (
+        <div className="custom-modal-overlay" onClick={modal.type === 'confirm' ? undefined : closeModal}>
+          <div className="custom-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="custom-modal-content">
+              <p>{modal.message}</p>
+            </div>
+            <div className="custom-modal-buttons">
+              {modal.type === 'confirm' ? (
+                <>
+                  <button className="modal-btn modal-btn-cancel" onClick={closeModal}>
+                    Cancel
+                  </button>
+                  <button className="modal-btn modal-btn-confirm" onClick={confirmModal}>
+                    OK
+                  </button>
+                </>
+              ) : (
+                <button className="modal-btn modal-btn-ok" onClick={closeModal}>
+                  OK
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,10 +1,20 @@
 from openai import OpenAI
 import time
 
+import os
+
+# 从环境变量读取 API 配置
+api_key = os.getenv("DEEPSEEK_API_KEY")
+base_url = os.getenv("DEEPSEEK_BASE_URL")
+
+if not api_key or not base_url:
+    print("❌ Error: DEEPSEEK_API_KEY and DEEPSEEK_BASE_URL environment variables must be set")
+    exit(1)
+
 # 创建客户端，设置较长的超时时间
 client = OpenAI(
-    api_key="sk-S5csXKfMoFyqMo9rSwQs0pMhkZp3JsBlIissNSREmhEo0L3j",
-    base_url="https://www.chataiapi.com/v1",
+    api_key=api_key,
+    base_url=base_url,
     timeout=120.0  # 设置120秒超时
 )
 
@@ -15,7 +25,7 @@ start_time = time.time()
 try:
     # 创建完成请求
     completion = client.chat.completions.create(
-        model="deepseek-r1",  # 使用 deepseek-r1 推理模型
+        model="deepseek-chat",  # 使用 deepseek-chat 模型
         messages=[{"role": "user", "content": "9.9和9.11谁大"}],
         max_tokens=1000
     )
