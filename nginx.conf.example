@@ -1,0 +1,80 @@
+# Nginx 配置示例
+# 将此文件复制到 /etc/nginx/sites-available/bptutor 并根据实际情况修改
+
+server {
+    listen 80;
+    server_name your-domain.com;  # 替换为你的域名或服务器 IP
+
+    # 前端静态文件
+    location / {
+        root /var/www/bptutor/build;
+        try_files $uri $uri/ /index.html;
+        index index.html;
+        
+        # 缓存静态资源
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+    }
+
+    # 后端 API 代理
+    location /api {
+        proxy_pass http://localhost:5050;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # 超时设置
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # 健康检查
+    location /api/health {
+        proxy_pass http://localhost:5050/api/health;
+        access_log off;
+    }
+
+    # 日志配置
+    access_log /var/log/nginx/bptutor-access.log;
+    error_log /var/log/nginx/bptutor-error.log;
+}
+
+# HTTPS 配置（使用 Let's Encrypt 后）
+# server {
+#     listen 443 ssl http2;
+#     server_name your-domain.com;
+# 
+#     ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+# 
+#     # SSL 配置
+#     ssl_protocols TLSv1.2 TLSv1.3;
+#     ssl_ciphers HIGH:!aNULL:!MD5;
+#     ssl_prefer_server_ciphers on;
+# 
+#     # 其他配置同上
+#     location / {
+#         root /var/www/bptutor/build;
+#         try_files $uri $uri/ /index.html;
+#     }
+# 
+#     location /api {
+#         proxy_pass http://localhost:5050;
+#         # ... 同上
+#     }
+# }
+# 
+# # HTTP 重定向到 HTTPS
+# server {
+#     listen 80;
+#     server_name your-domain.com;
+#     return 301 https://$server_name$request_uri;
+# }

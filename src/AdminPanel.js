@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './AdminPanel.css';
+import config from './config';
 
 const AdminPanel = ({ userInfo, onLogout }) => {
   const [activeTab, setActiveTab] = useState('stats');
@@ -20,7 +21,7 @@ const AdminPanel = ({ userInfo, onLogout }) => {
   const fetchUserStats = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5050/api/admin/user-stats');
+      const response = await fetch(config.endpoints.admin.userStats);
       const data = await response.json();
       if (data.status === 'success') {
         setUserStats(data.data);
@@ -37,7 +38,7 @@ const AdminPanel = ({ userInfo, onLogout }) => {
     setLoading(true);
     try {
       const offset = (page - 1) * recordsPerPage;
-      let url = `http://localhost:5050/api/admin/chat-records?limit=${recordsPerPage}&offset=${offset}`;
+      let url = `${config.endpoints.admin.chatRecords}?limit=${recordsPerPage}&offset=${offset}`;
       
       if (selectedUser) {
         url += `&user_id=${selectedUser}`;
@@ -82,12 +83,12 @@ const AdminPanel = ({ userInfo, onLogout }) => {
 
   // 格式化消息类型
   const formatMessageType = (type) => {
-    return type === 'user' ? '用户' : 'GPT';
+    return type === 'user' ? 'User' : 'GPT';
   };
 
-  // 获取任务类型显示名称
+  // Get task type display name
   const getTaskTypeName = (taskType) => {
-    return taskType === 'taskA' ? 'Task A - 基础写作' : 'Task B - 元反思工作台';
+    return taskType === 'taskA' ? 'Task A – Basic writing' : 'Task B – Meta-reflection';
   };
 
   // 分页处理
@@ -141,17 +142,17 @@ const AdminPanel = ({ userInfo, onLogout }) => {
   // 删除选中的统计记录
   const deleteSelectedStats = async () => {
     if (selectedStats.length === 0) {
-      alert('请先选择要删除的记录');
+      alert('Please select records to delete first');
       return;
     }
 
-    if (!window.confirm(`确定要删除选中的 ${selectedStats.length} 条用户统计记录吗？此操作不可恢复。`)) {
+    if (!window.confirm(`Delete ${selectedStats.length} selected user stat record(s)? This cannot be undone.`)) {
       return;
     }
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5050/api/admin/delete-user-stats', {
+      const response = await fetch(config.endpoints.admin.deleteUserStats, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -163,16 +164,16 @@ const AdminPanel = ({ userInfo, onLogout }) => {
 
       const data = await response.json();
       if (data.status === 'success') {
-        alert(`成功删除 ${data.deleted_count} 条记录`);
+        alert(`Deleted ${data.deleted_count} record(s)`);
         setSelectedStats([]);
         setSelectAllStats(false);
         fetchUserStats(); // 刷新列表
       } else {
-        alert('删除失败: ' + data.error);
+        alert('Delete failed: ' + data.error);
       }
     } catch (error) {
-      console.error('删除统计记录失败:', error);
-      alert('删除统计记录失败');
+      console.error('Delete stat records failed:', error);
+      alert('Delete failed');
     } finally {
       setLoading(false);
     }
@@ -181,17 +182,17 @@ const AdminPanel = ({ userInfo, onLogout }) => {
   // 删除选中的记录
   const deleteSelectedRecords = async () => {
     if (selectedRecords.length === 0) {
-      alert('请先选择要删除的记录');
+      alert('Please select records to delete first');
       return;
     }
 
-    if (!window.confirm(`确定要删除选中的 ${selectedRecords.length} 条记录吗？此操作不可恢复。`)) {
+    if (!window.confirm(`Delete ${selectedRecords.length} selected record(s)? This cannot be undone.`)) {
       return;
     }
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5050/api/admin/delete-chat-records', {
+      const response = await fetch(config.endpoints.admin.deleteChatRecords, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -203,16 +204,16 @@ const AdminPanel = ({ userInfo, onLogout }) => {
 
       const data = await response.json();
       if (data.status === 'success') {
-        alert(`成功删除 ${data.deleted_count} 条记录`);
+        alert(`Deleted ${data.deleted_count} record(s)`);
         setSelectedRecords([]);
         setSelectAll(false);
         fetchChatRecords(currentPage); // 刷新列表
       } else {
-        alert('删除失败: ' + data.error);
+        alert('Delete failed: ' + data.error);
       }
     } catch (error) {
-      console.error('删除记录失败:', error);
-      alert('删除记录失败');
+      console.error('Delete records failed:', error);
+      alert('Delete failed');
     } finally {
       setLoading(false);
     }
@@ -223,7 +224,7 @@ const AdminPanel = ({ userInfo, onLogout }) => {
     setLoading(true);
     try {
       // 获取所有记录（不分页）
-      let url = 'http://localhost:5050/api/admin/chat-records?limit=10000&offset=0';
+      let url = `${config.endpoints.admin.chatRecords}?limit=10000&offset=0`;
       
       if (selectedUser) {
         url += `&user_id=${selectedUser}`;
@@ -238,14 +239,14 @@ const AdminPanel = ({ userInfo, onLogout }) => {
       if (data.status === 'success') {
         // 创建Excel内容
         const excelContent = createExcelContent(data.data);
-        downloadExcel(excelContent, `聊天记录_${new Date().toISOString().split('T')[0]}.xlsx`);
-        alert(`成功导出 ${data.data.length} 条记录`);
+        downloadExcel(excelContent, `chat_records_${new Date().toISOString().split('T')[0]}.xlsx`);
+        alert(`Exported ${data.data.length} record(s)`);
       } else {
-        alert('导出失败: ' + data.error);
+        alert('Export failed: ' + data.error);
       }
     } catch (error) {
-      console.error('导出失败:', error);
-      alert('导出失败');
+      console.error('Export failed:', error);
+      alert('Export failed');
     } finally {
       setLoading(false);
     }
@@ -253,12 +254,12 @@ const AdminPanel = ({ userInfo, onLogout }) => {
 
   // 创建Excel内容
   const createExcelContent = (records) => {
-    const headers = ['时间', '用户', '任务类型', '想法/板块', '消息类型', '内容'];
+    const headers = ['Time', 'User', 'Task type', 'Idea/Section', 'Message type', 'Content'];
     const rows = records.map(record => [
       formatTime(record.timestamp),
       record.user_id,
       getTaskTypeName(record.task_type),
-      record.task_type === 'taskA' ? record.section_name : `${record.idea_name || '未命名想法'} - ${record.section_name}`,
+      record.task_type === 'taskA' ? record.section_name : `${record.idea_name || 'Untitled idea'} - ${record.section_name}`,
       formatMessageType(record.message_type),
       record.content
     ]);
@@ -288,13 +289,13 @@ const AdminPanel = ({ userInfo, onLogout }) => {
     <div className="admin-panel">
       {/* 头部 */}
       <div className="admin-header">
-        <h1>管理员后台</h1>
+        <h1>Admin panel</h1>
         <div className="header-right">
           <div className="admin-info">
-            <span className="admin-name">管理员</span>
+            <span className="admin-name">Admin</span>
           </div>
           <button className="logout-btn" onClick={onLogout}>
-            退出登录
+            Log out
           </button>
         </div>
       </div>
@@ -305,13 +306,13 @@ const AdminPanel = ({ userInfo, onLogout }) => {
           className={`tab-btn ${activeTab === 'stats' ? 'active' : ''}`}
           onClick={() => setActiveTab('stats')}
         >
-          📊 用户统计
+          📊 User stats
         </button>
         <button 
           className={`tab-btn ${activeTab === 'chats' ? 'active' : ''}`}
           onClick={() => setActiveTab('chats')}
         >
-          💬 聊天记录
+          💬 Chat records
         </button>
       </div>
 
@@ -320,23 +321,23 @@ const AdminPanel = ({ userInfo, onLogout }) => {
         {activeTab === 'stats' && (
           <div className="stats-panel">
             <div className="panel-header">
-              <h2>用户使用统计</h2>
+              <h2>User usage stats</h2>
               <div className="stats-actions">
                 <button className="refresh-btn" onClick={fetchUserStats}>
-                  🔄 刷新
+                  🔄 Refresh
                 </button>
                 <button 
                   className="delete-btn" 
                   onClick={deleteSelectedStats}
                   disabled={selectedStats.length === 0}
                 >
-                  🗑️ 删除选中 ({selectedStats.length})
+                  🗑️ Delete selected ({selectedStats.length})
                 </button>
               </div>
             </div>
             
             {loading ? (
-              <div className="loading">加载中...</div>
+              <div className="loading">Loading...</div>
             ) : (
               <div className="stats-table">
                 <table>
@@ -350,12 +351,12 @@ const AdminPanel = ({ userInfo, onLogout }) => {
                           className="select-checkbox"
                         />
                       </th>
-                      <th>用户ID</th>
-                      <th>任务类型</th>
-                      <th>消息总数</th>
-                      <th>想法总数</th>
-                      <th>最后活跃</th>
-                      <th>注册时间</th>
+                      <th>User ID</th>
+                      <th>Task type</th>
+                      <th>Total messages</th>
+                      <th>Total ideas</th>
+                      <th>Last active</th>
+                      <th>Created</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -386,7 +387,7 @@ const AdminPanel = ({ userInfo, onLogout }) => {
                 
                 {userStats.length === 0 && (
                   <div className="empty-state">
-                    <p>暂无用户数据</p>
+                    <p>No user data yet</p>
                   </div>
                 )}
               </div>
@@ -397,14 +398,14 @@ const AdminPanel = ({ userInfo, onLogout }) => {
         {activeTab === 'chats' && (
           <div className="chats-panel">
             <div className="panel-header">
-              <h2>聊天记录管理</h2>
+              <h2>Chat records</h2>
               <div className="filters">
                 <select 
                   value={selectedUser} 
                   onChange={(e) => setSelectedUser(e.target.value)}
                   className="filter-select"
                 >
-                  <option value="">所有用户</option>
+                  <option value="">All users</option>
                   {userStats.map(stat => (
                     <option key={stat.user_id} value={stat.user_id}>
                       {stat.user_id}
@@ -417,17 +418,17 @@ const AdminPanel = ({ userInfo, onLogout }) => {
                   onChange={(e) => setSelectedTaskType(e.target.value)}
                   className="filter-select"
                 >
-                  <option value="">所有任务</option>
-                  <option value="taskA">Task A - 基础写作</option>
-                  <option value="taskB">Task B - 元反思工作台</option>
+                  <option value="">All tasks</option>
+                  <option value="taskA">Task A – Basic writing</option>
+                  <option value="taskB">Task B – Meta-reflection</option>
                 </select>
                 
                 <button className="refresh-btn" onClick={() => fetchChatRecords(currentPage)}>
-                  🔄 刷新
+                  🔄 Refresh
                 </button>
                 
                 <button className="export-btn" onClick={exportToExcel}>
-                  📊 导出Excel
+                  📊 Export Excel
                 </button>
                 
                 <button 
@@ -435,13 +436,13 @@ const AdminPanel = ({ userInfo, onLogout }) => {
                   onClick={deleteSelectedRecords}
                   disabled={selectedRecords.length === 0}
                 >
-                  🗑️ 删除选中 ({selectedRecords.length})
+                  🗑️ Delete selected ({selectedRecords.length})
                 </button>
               </div>
             </div>
             
             {loading ? (
-              <div className="loading">加载中...</div>
+              <div className="loading">Loading...</div>
             ) : (
               <>
                 <div className="chats-table">
@@ -456,12 +457,12 @@ const AdminPanel = ({ userInfo, onLogout }) => {
                             className="select-checkbox"
                           />
                         </th>
-                        <th>时间</th>
-                        <th>用户</th>
-                        <th>任务类型</th>
-                        <th>想法/板块</th>
-                        <th>消息类型</th>
-                        <th>内容</th>
+                        <th>Time</th>
+                        <th>User</th>
+                        <th>Task type</th>
+                        <th>Idea/Section</th>
+                        <th>Message type</th>
+                        <th>Content</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -486,7 +487,7 @@ const AdminPanel = ({ userInfo, onLogout }) => {
                             {record.task_type === 'taskA' ? (
                               record.section_name
                             ) : (
-                              `${record.idea_name || '未命名想法'} - ${record.section_name}`
+                              `${record.idea_name || 'Untitled idea'} - ${record.section_name}`
                             )}
                           </td>
                           <td>
@@ -509,7 +510,7 @@ const AdminPanel = ({ userInfo, onLogout }) => {
                   
                   {chatRecords.length === 0 && (
                     <div className="empty-state">
-                      <p>暂无聊天记录</p>
+                      <p>No chat records yet</p>
                     </div>
                   )}
                 </div>
@@ -522,11 +523,11 @@ const AdminPanel = ({ userInfo, onLogout }) => {
                       onClick={() => handlePageChange(currentPage - 1)}
                       disabled={currentPage === 1}
                     >
-                      上一页
+                      Previous
                     </button>
                     
                     <span className="page-info">
-                      第 {currentPage} 页，共 {totalPages} 页
+                      Page {currentPage} of {totalPages}
                     </span>
                     
                     <button 
@@ -534,7 +535,7 @@ const AdminPanel = ({ userInfo, onLogout }) => {
                       onClick={() => handlePageChange(currentPage + 1)}
                       disabled={currentPage === totalPages}
                     >
-                      下一页
+                      Next
                     </button>
                   </div>
                 )}

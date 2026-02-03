@@ -1,9 +1,32 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './TaskA.css';
+import config from './config';
 
 const TaskA = ({ userInfo, onLogout }) => {
-  // 状态管理
-  const [writings, setWritings] = useState({
+  // 文档管理状态
+  const [documents, setDocuments] = useState([
+    {
+      id: Date.now(),
+      name: 'Business Plan 1',
+      writings: {
+        userPainPoints: '',
+        marketAnalysis: '',
+        productIntro: '',
+        competitiveAnalysis: '',
+        feasibilityAnalysis: '',
+        fundingPlan: '',
+        teamIntro: ''
+      },
+      chatMessages: []
+    }
+  ]);
+  const [currentDocumentId, setCurrentDocumentId] = useState(null);
+  const [editingDocumentId, setEditingDocumentId] = useState(null);
+  const [editingDocumentName, setEditingDocumentName] = useState('');
+  
+  // 当前文档的状态（从documents中获取）
+  const currentDocument = documents.find(doc => doc.id === currentDocumentId) || documents[0];
+  const [writings, setWritings] = useState(currentDocument?.writings || {
     userPainPoints: '',
     marketAnalysis: '',
     productIntro: '',
@@ -12,162 +35,201 @@ const TaskA = ({ userInfo, onLogout }) => {
     fundingPlan: '',
     teamIntro: ''
   });
+  const [chatMessages, setChatMessages] = useState(currentDocument?.chatMessages || []);
+  
   const [selectedSection, setSelectedSection] = useState(1);
-  const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [modal, setModal] = useState({ show: false, message: '', type: 'info', onConfirm: null });
+  // 每个文档、每个板块的 to-do 勾选状态 { docId: { sectionId: boolean[] } }
+  const [todoChecked, setTodoChecked] = useState({});
   
   // 引用
   const chatEndRef = useRef(null);
+  
+  // 初始化：设置当前文档ID
+  useEffect(() => {
+    if (documents.length > 0 && !currentDocumentId) {
+      setCurrentDocumentId(documents[0].id);
+    }
+  }, [documents, currentDocumentId]);
+  
+  // 当切换文档时，更新writings和chatMessages
+  useEffect(() => {
+    if (currentDocumentId && currentDocument) {
+      setWritings({ ...currentDocument.writings });
+      setChatMessages([...currentDocument.chatMessages]);
+    }
+  }, [currentDocumentId]);
 
-  // 写作框架模板 - 针对Task A的基础写作
+  // 当writings或chatMessages变化时，更新当前文档（使用ref避免循环）
+  const prevWritingsRef = useRef(writings);
+  const prevChatMessagesRef = useRef(chatMessages);
+  
+  useEffect(() => {
+    if (currentDocumentId && 
+        (JSON.stringify(prevWritingsRef.current) !== JSON.stringify(writings) ||
+         JSON.stringify(prevChatMessagesRef.current) !== JSON.stringify(chatMessages))) {
+      setDocuments(prevDocs => 
+        prevDocs.map(doc => 
+          doc.id === currentDocumentId 
+            ? { ...doc, writings: { ...writings }, chatMessages: [...chatMessages] }
+            : doc
+        )
+      );
+      prevWritingsRef.current = writings;
+      prevChatMessagesRef.current = chatMessages;
+    }
+  }, [writings, chatMessages, currentDocumentId]);
+
+  // Writing framework for Task A
   const writingFramework = [
     { 
       id: 1, 
-      title: '用户痛点', 
-      placeholder: `🎯 用户痛点分析
+      title: 'User Pain Points', 
+      placeholder: `🎯 User pain points
 
-请详细描述你的目标用户群体和他们的核心痛点：
+Describe your target users and their core pains:
 
-• 目标用户是谁？（年龄、职业、收入、行为特征）
-• 用户当前面临什么具体问题？
-• 这些问题给用户带来什么损失或困扰？
-• 用户现在是如何解决这些问题的？
-• 现有解决方案有什么不足？
+• Who are they? (age, occupation, income, behavior)
+• What specific problems do they face?
+• What does this cost or trouble them?
+• How do they solve it today?
+• What’s wrong with current solutions?
 
-请用具体的数据和案例来说明。`,
+Use concrete data and examples.`,
       examples: [
-        '我的目标用户群体是什么？',
-        '用户当前面临的主要痛点有哪些？',
-        '这些痛点会给用户带来什么具体损失？',
-        '用户现在是如何解决这些问题的？'
+        'Who is my target user group?',
+        'What are the main pain points?',
+        'What do these pains cost users?',
+        'How do users solve this today?'
       ]
     },
     { 
       id: 2, 
-      title: '市场分析', 
-      placeholder: `📊 市场分析
+      title: 'Market Analysis', 
+      placeholder: `📊 Market analysis
 
-请分析你的目标市场：
+Analyze your target market:
 
-• 市场规模有多大？（用具体数据说明）
-• 市场增长趋势如何？
-• 市场有哪些细分领域？
-• 市场的主要驱动因素是什么？
-• 有哪些政策或技术趋势会影响市场？
+• How large is the market? (with data)
+• What are the growth trends?
+• What segments exist?
+• What are the main drivers?
+• What policies or tech trends affect it?
 
-请提供可靠的数据来源。`,
+Cite reliable sources.`,
       examples: [
-        '目标市场的规模有多大？',
-        '市场增长趋势如何？',
-        '市场中有哪些细分机会？',
-        '影响市场的主要因素有哪些？'
+        'How large is the market?',
+        'What are the growth trends?',
+        'What segments and opportunities exist?',
+        'What are the main market drivers?'
       ]
     },
     { 
       id: 3, 
-      title: '产品介绍', 
-      placeholder: `🚀 产品介绍
+      title: 'Product Overview', 
+      placeholder: `🚀 Product overview
 
-请详细介绍你的产品或服务：
+Describe your product or service:
 
-• 产品的核心功能是什么？
-• 产品如何解决用户痛点？
-• 产品有哪些独特的功能或特点？
-• 产品能为用户创造什么价值？
-• 产品的使用场景和流程是怎样的？
+• What are the core features?
+• How does it address user pains?
+• What’s unique about it?
+• What value does it create?
+• What are the use cases and flow?
 
-请用简洁明了的语言描述。`,
+Keep it clear and concise.`,
       examples: [
-        '我的产品核心功能是什么？',
-        '产品如何解决用户痛点？',
-        '产品有哪些独特优势？',
-        '产品的使用流程是怎样的？'
+        'What are my product’s core features?',
+        'How does it solve user pains?',
+        'What are its unique advantages?',
+        'What is the usage flow?'
       ]
     },
     { 
       id: 4, 
-      title: '竞争分析', 
-      placeholder: `⚔️ 竞争分析
+      title: 'Competitive Analysis', 
+      placeholder: `⚔️ Competitive analysis
 
-请分析你的竞争对手：
+Analyze your competitors:
 
-• 主要竞争对手有哪些？
-• 竞争对手的产品、价格、渠道、营销策略如何？
-• 我们的产品与竞品相比有什么优势？
-• 市场上还有哪些替代方案？
-• 如何建立竞争壁垒？
+• Who are the main competitors?
+• Their product, price, channel, marketing?
+• Our advantages vs. competitors?
+• What alternatives exist?
+• How do we build moats?
 
-请客观分析，不要贬低竞争对手。`,
+Be objective.`,
       examples: [
-        '主要竞争对手有哪些？',
-        '我们的产品与竞品相比有什么优势？',
-        '如何建立竞争壁垒？',
-        '市场上有哪些替代方案？'
+        'Who are the main competitors?',
+        'What are our advantages vs. competitors?',
+        'How do we build defensibility?',
+        'What alternatives exist?'
       ]
     },
     { 
       id: 5, 
-      title: '可行性分析', 
-      placeholder: `✅ 可行性分析
+      title: 'Feasibility Analysis', 
+      placeholder: `✅ Feasibility analysis
 
-请分析项目的可行性：
+Assess feasibility:
 
-• 技术实现的难点和风险在哪里？
-• 运营模式是否可持续？
-• 需要什么资源和团队？
-• 预期的成本结构是什么？
-• 可能面临哪些法律或监管风险？
+• Where are the technical challenges and risks?
+• Is the operating model sustainable?
+• What resources and team are needed?
+• What is the cost structure?
+• What legal or regulatory risks exist?
 
-请诚实评估项目的可行性。`,
+Be honest.`,
       examples: [
-        '技术实现的难点在哪里？',
-        '运营模式是否可持续？',
-        '需要什么资源和团队？',
-        '可能面临哪些风险？'
+        'Where are the technical challenges?',
+        'Is the operating model sustainable?',
+        'What resources and team are needed?',
+        'What risks do we face?'
       ]
     },
     { 
       id: 6, 
-      title: '融资计划', 
-      placeholder: `💰 融资计划
+      title: 'Funding Plan', 
+      placeholder: `💰 Funding plan
 
-请制定融资计划：
+Outline your funding plan:
 
-• 计划融资多少？分几轮？
-• 资金主要用在哪些方面？
-• 预期的估值和投资回报如何？
-• 有哪些退出机制？
-• 如何吸引投资者？
+• How much to raise? In how many rounds?
+• Where will the funds be used?
+• Expected valuation and returns?
+• Exit options?
+• How to attract investors?
 
-请提供具体的财务预测。`,
+Include financial projections.`,
       examples: [
-        '计划融资多少？分几轮？',
-        '资金主要用在哪些方面？',
-        '预期的投资回报如何？',
-        '如何吸引投资者？'
+        'How much to raise? In how many rounds?',
+        'Where will the funds be used?',
+        'What returns can investors expect?',
+        'How to attract investors?'
       ]
     },
     { 
       id: 7, 
-      title: '团队介绍', 
-      placeholder: `👥 团队介绍
+      title: 'Team', 
+      placeholder: `👥 Team
 
-请介绍你的团队：
+Introduce your team:
 
-• 核心团队成员有哪些？
-• 各自的背景和专长是什么？
-• 团队在这个领域有什么优势？
-• 团队还缺少什么关键角色？
-• 如何吸引和留住优秀人才？
+• Who are the core members?
+• Their background and expertise?
+• What advantages does the team have?
+• What key roles are missing?
+• How will you attract and retain talent?
 
-请突出团队的执行力。`,
+Highlight execution.`,
       examples: [
-        '核心团队成员有哪些？',
-        '团队有什么独特优势？',
-        '还缺少什么关键角色？',
-        '如何吸引优秀人才？'
+        'Who are the core team members?',
+        'What unique advantages does the team have?',
+        'What key roles are missing?',
+        'How will you attract talent?'
       ]
     }
   ];
@@ -200,6 +262,49 @@ const TaskA = ({ userInfo, onLogout }) => {
     return fieldMap[frameworkId];
   };
 
+  // 从 placeholder 文本解析出 to-do 列表项（以 • 开头的行）
+  const getTodoItemsFromPlaceholder = (placeholderText) => {
+    if (!placeholderText) return [];
+    return placeholderText
+      .split(/\n/)
+      .map(line => line.trim())
+      .filter(line => line.startsWith('•') || line.startsWith('*'))
+      .map(line => line.replace(/^[•*]\s*/, '').trim())
+      .filter(Boolean);
+  };
+
+  // 获取当前板块的 to-do 项
+  const getCurrentTodoItems = () => {
+    const section = writingFramework.find(s => s.id === selectedSection);
+    return section ? getTodoItemsFromPlaceholder(section.placeholder) : [];
+  };
+
+  // 获取当前文档、当前板块的勾选状态数组
+  const getTodoCheckedList = () => {
+    const docId = currentDocumentId;
+    const sectionId = selectedSection;
+    if (!docId) return [];
+    const byDoc = todoChecked[docId] || {};
+    return byDoc[sectionId] || [];
+  };
+
+  // 切换某一项的勾选
+  const toggleTodoItem = (index) => {
+    const docId = currentDocumentId;
+    const sectionId = selectedSection;
+    if (docId == null) return;
+    const items = getCurrentTodoItems();
+    const byDoc = todoChecked[docId] || {};
+    const list = byDoc[sectionId] || items.map(() => false);
+    const newList = [...list];
+    while (newList.length < items.length) newList.push(false);
+    newList[index] = !newList[index];
+    setTodoChecked({
+      ...todoChecked,
+      [docId]: { ...byDoc, [sectionId]: newList }
+    });
+  };
+
   // 更新写作内容
   const updateWriting = (field, value) => {
     setWritings({
@@ -208,15 +313,33 @@ const TaskA = ({ userInfo, onLogout }) => {
     });
   };
 
+  // 显示自定义弹窗
+  const showModal = (message, type = 'info', onConfirm = null) => {
+    setModal({ show: true, message, type, onConfirm });
+  };
+
+  // 隐藏弹窗
+  const hideModal = () => {
+    setModal({ show: false, message: '', type: 'info', onConfirm: null });
+  };
+
+  // 处理确认
+  const handleConfirm = () => {
+    if (modal.onConfirm) {
+      modal.onConfirm();
+    }
+    hideModal();
+  };
+
   // 保存写作内容
   const saveWriting = () => {
     console.log('保存写作内容:', writings);
-    alert('写作内容已保存！');
+    showModal('Writing saved!', 'success');
   };
 
   // 清空当前写作
   const clearWriting = () => {
-    if (window.confirm('确定要清空当前写作内容吗？')) {
+    showModal('Clear current writing content?', 'confirm', () => {
       setWritings({
         userPainPoints: '',
         marketAnalysis: '',
@@ -226,7 +349,7 @@ const TaskA = ({ userInfo, onLogout }) => {
         fundingPlan: '',
         teamIntro: ''
       });
-    }
+    });
   };
 
   // 发送聊天消息
@@ -254,7 +377,7 @@ const TaskA = ({ userInfo, onLogout }) => {
       const currentFramework = writingFramework.find(f => f.id === selectedSection);
       const currentWriting = writings[getFieldName(selectedSection)];
       
-      const response = await fetch('http://localhost:5050/api/strategy', {
+      const response = await fetch(config.endpoints.strategy, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -262,7 +385,7 @@ const TaskA = ({ userInfo, onLogout }) => {
         body: JSON.stringify({
           query: text,
           context: {
-            ideaText: '商业计划书写作',
+            ideaText: 'Business plan writing',
             currentSection: currentFramework?.title,
             allWritings: writings,
             currentSectionContent: currentWriting,
@@ -287,14 +410,14 @@ const TaskA = ({ userInfo, onLogout }) => {
         // 保存AI回复到数据库
         saveChatToDatabase(aiMessage);
       } else {
-        throw new Error(data.error || '请求失败');
+        throw new Error(data.error || 'Request failed');
       }
     } catch (error) {
       console.error('聊天错误:', error);
       const errorMessage = {
         id: Date.now() + 1,
         type: 'ai',
-        content: '抱歉，服务暂时不可用，请稍后重试。',
+        content: 'Service temporarily unavailable. Please try again later.',
         timestamp: new Date(),
         sectionId: selectedSection
       };
@@ -308,7 +431,7 @@ const TaskA = ({ userInfo, onLogout }) => {
   // 保存聊天记录到数据库
   const saveChatToDatabase = async (message) => {
     try {
-      const sectionName = writingFramework.find(f => f.id === message.sectionId)?.title || '未知板块';
+      const sectionName = writingFramework.find(f => f.id === message.sectionId)?.title || 'Unknown section';
       
       console.log('保存聊天记录到数据库:', {
         user_id: userInfo.username,
@@ -320,7 +443,7 @@ const TaskA = ({ userInfo, onLogout }) => {
         timestamp: message.timestamp
       });
       
-      const response = await fetch('http://localhost:5050/api/save-chat', {
+      const response = await fetch(config.endpoints.saveChat, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -361,23 +484,93 @@ const TaskA = ({ userInfo, onLogout }) => {
   const toggleFullscreen = () => {
     setIsFullscreen(!isFullscreen);
   };
+  
+  // 创建新文档
+  const createNewDocument = () => {
+    const newDoc = {
+      id: Date.now(),
+      name: `Business Plan ${documents.length + 1}`,
+      writings: {
+        userPainPoints: '',
+        marketAnalysis: '',
+        productIntro: '',
+        competitiveAnalysis: '',
+        feasibilityAnalysis: '',
+        fundingPlan: '',
+        teamIntro: ''
+      },
+      chatMessages: []
+    };
+    setDocuments([...documents, newDoc]);
+    setCurrentDocumentId(newDoc.id);
+  };
+  
+  // 切换文档
+  const switchDocument = (docId) => {
+    setCurrentDocumentId(docId);
+  };
+  
+  // 删除文档
+  const deleteDocument = (docId, e) => {
+    e.stopPropagation();
+    if (documents.length <= 1) {
+      showModal('At least one document is required', 'info');
+      return;
+    }
+    showModal('Delete this document?', 'confirm', () => {
+      const newDocs = documents.filter(doc => doc.id !== docId);
+      setDocuments(newDocs);
+      if (docId === currentDocumentId) {
+        setCurrentDocumentId(newDocs[0].id);
+      }
+    });
+  };
+  
+  // 开始编辑文档名称
+  const startEditingDocumentName = (docId, e) => {
+    e.stopPropagation();
+    const doc = documents.find(d => d.id === docId);
+    if (doc) {
+      setEditingDocumentId(docId);
+      setEditingDocumentName(doc.name);
+    }
+  };
+  
+  // 保存文档名称
+  const saveDocumentName = (docId) => {
+    if (editingDocumentName.trim()) {
+      setDocuments(prevDocs =>
+        prevDocs.map(doc =>
+          doc.id === docId ? { ...doc, name: editingDocumentName.trim() } : doc
+        )
+      );
+    }
+    setEditingDocumentId(null);
+    setEditingDocumentName('');
+  };
+  
+  // 取消编辑文档名称
+  const cancelEditingDocumentName = () => {
+    setEditingDocumentId(null);
+    setEditingDocumentName('');
+  };
 
   return (
     <div className={`task-a-container ${isFullscreen ? 'fullscreen-mode' : ''}`}>
       {/* 头部 */}
       <div className="task-a-header">
-        <h1>Task A - 基础商业计划书写作</h1>
+        <h1>Task A – Basic Business Plan Writing</h1>
         <div className="header-right">
           <div className="user-info">
-            <span className="user-name">用户 {userInfo.username}</span>
+            <span className="user-name">User {userInfo.username}</span>
             <span className="user-task">Task A</span>
           </div>
           <button className="logout-btn" onClick={onLogout}>
-            退出登录
+            Log out
           </button>
           <div className="status-indicator">
             <span className="status-dot"></span>
-            服务运行中
+            Service running
           </div>
         </div>
       </div>
@@ -386,20 +579,75 @@ const TaskA = ({ userInfo, onLogout }) => {
         {/* 左侧：写作工作区 */}
         <div className="writing-panel">
           <div className="writing-header">
-            <h3>✍️ 写作工作区</h3>
+            <h3>✍️ Writing workspace</h3>
             <div className="writing-tools">
-              <button className="tool-btn" onClick={saveWriting}>保存</button>
-              <button className="tool-btn" onClick={clearWriting}>清空</button>
+              <button className="tool-btn" onClick={saveWriting}>Save</button>
+              <button className="tool-btn" onClick={clearWriting}>Clear</button>
               <button className="tool-btn fullscreen-btn" onClick={toggleFullscreen}>
                 {isFullscreen ? "⤓" : "⤢"}
               </button>
             </div>
           </div>
           
+          {/* 文档标签栏 */}
+          <div className="document-tabs">
+            {documents.map(doc => (
+              <div
+                key={doc.id}
+                className={`document-tab ${currentDocumentId === doc.id ? 'active' : ''}`}
+                onClick={() => switchDocument(doc.id)}
+              >
+                {editingDocumentId === doc.id ? (
+                  <input
+                    type="text"
+                    value={editingDocumentName}
+                    onChange={(e) => setEditingDocumentName(e.target.value)}
+                    onBlur={() => saveDocumentName(doc.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        saveDocumentName(doc.id);
+                      } else if (e.key === 'Escape') {
+                        cancelEditingDocumentName();
+                      }
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="document-name-input"
+                    autoFocus
+                  />
+                ) : (
+                  <>
+                    <span 
+                      className="document-name"
+                      onDoubleClick={(e) => startEditingDocumentName(doc.id, e)}
+                    >
+                      {doc.name}
+                    </span>
+                    {documents.length > 1 && (
+                      <button
+                        className="document-close-btn"
+                        onClick={(e) => deleteDocument(doc.id, e)}
+                        title="Delete document"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            ))}
+            <button
+              className="document-tab new-document-btn"
+              onClick={createNewDocument}
+              title="New document"
+            >
+              +
+            </button>
+          </div>
+          
           <div className="writing-content">
             {/* 左侧：写作框架 */}
             <div className="writing-framework">
-              <h4>写作框架</h4>
+              <h4>Writing framework</h4>
               {writingFramework.map(section => (
                 <div 
                   key={section.id} 
@@ -417,11 +665,28 @@ const TaskA = ({ userInfo, onLogout }) => {
                 <div className="editor-field-header">
                   {writingFramework.find(s => s.id === selectedSection)?.title}
                 </div>
+                {/* 导航栏和文本框之间的 to-do 列表 */}
+                <div className="editor-todo-list">
+                  {getCurrentTodoItems().map((item, index) => {
+                    const checkedList = getTodoCheckedList();
+                    const checked = checkedList[index] === true;
+                    return (
+                      <label key={index} className={`editor-todo-item ${checked ? 'checked' : ''}`}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleTodoItem(index)}
+                        />
+                        <span className="editor-todo-text">{item}</span>
+                      </label>
+                    );
+                  })}
+                </div>
                 <textarea
                   value={writings[getFieldName(selectedSection)] || ''}
                   onChange={(e) => updateWriting(getFieldName(selectedSection), e.target.value)}
-                  placeholder={writingFramework.find(s => s.id === selectedSection)?.placeholder}
                   className="editor-textarea"
+                  placeholder=""
                 />
               </div>
             </div>
@@ -431,7 +696,7 @@ const TaskA = ({ userInfo, onLogout }) => {
         {/* 右侧：聊天区域 */}
         <div className="chat-panel">
           <div className="chat-header">
-            <h3>🤖 GPT 写作助手</h3>
+            <h3>🤖 GPT Writing Assistant</h3>
             <div className="chat-tools">
               <span className="current-section-indicator">
                 {writingFramework.find(f => f.id === selectedSection)?.title}
@@ -442,8 +707,8 @@ const TaskA = ({ userInfo, onLogout }) => {
           <div className="chat-messages">
             {getCurrentChatMessages().length === 0 ? (
               <div className="empty-chat">
-                <p>💡 关于「{writingFramework.find(f => f.id === selectedSection)?.title}」</p>
-                <p>你可以问我以下问题来完善写作：</p>
+                <p>💡 About 「{writingFramework.find(f => f.id === selectedSection)?.title}」</p>
+                <p>You can ask me these questions to improve your writing:</p>
                 <div className="example-questions">
                   {writingFramework.find(f => f.id === selectedSection)?.examples.map((example, index) => (
                     <div 
@@ -462,7 +727,7 @@ const TaskA = ({ userInfo, onLogout }) => {
                   <div key={message.id} className={`message ${message.type}`}>
                     <div className="message-header">
                       <span className="message-sender">
-                        {message.type === 'user' ? '你' : 'GPT'}
+                        {message.type === 'user' ? 'You' : 'GPT'}
                       </span>
                       <span className="message-time">
                         {message.timestamp.toLocaleTimeString()}
@@ -498,7 +763,7 @@ const TaskA = ({ userInfo, onLogout }) => {
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="输入你的问题或想法..."
+              placeholder="Enter your question or idea..."
               className="chat-input"
               rows="3"
             />
@@ -508,12 +773,36 @@ const TaskA = ({ userInfo, onLogout }) => {
                 className="send-btn"
                 disabled={isLoading || !chatInput.trim()}
               >
-                {isLoading ? '发送中...' : '发送'}
+                {isLoading ? 'Sending...' : 'Send'}
               </button>
             </div>
           </div>
         </div>
       </div>
+      
+      {/* 自定义弹窗 */}
+      {modal.show && (
+        <div className="modal-overlay" onClick={modal.type === 'info' ? hideModal : undefined}>
+          <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h4>{modal.type === 'confirm' ? 'Confirm' : modal.type === 'success' ? 'Success' : 'Notice'}</h4>
+            </div>
+            <div className="modal-content">
+              <p>{modal.message}</p>
+            </div>
+            <div className="modal-actions">
+              {modal.type === 'confirm' ? (
+                <>
+                  <button className="modal-btn cancel" onClick={hideModal}>Cancel</button>
+                  <button className="modal-btn confirm" onClick={handleConfirm}>OK</button>
+                </>
+              ) : (
+                <button className="modal-btn confirm" onClick={hideModal}>OK</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
